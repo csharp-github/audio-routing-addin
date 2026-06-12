@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Audio Routing</title>
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f0f;
+      --bg2: #1a1a1a;
+      --bg3: #242424;
+      --border: #2e2e2e;
+      --accent: #3b82f6;
+      --accent2: #1d4ed8;
+      --text: #e5e5e5;
+      --text2: #888;
+      --text3: #555;
+      --green: #22c55e;
+      --red: #ef4444;
+      --orange: #f97316;
+      --yellow: #eab308;
+      --radius: 6px;
+      --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --mono: 'Cascadia Code', 'Fira Code', 'Courier New', monospace;
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 13px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* NAV */
+    .nav {
+      display: flex;
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .nav-btn {
+      flex: 1;
+      padding: 10px 4px 8px;
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text2);
+      font-size: 10px;
+      font-family: var(--font);
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      transition: all .15s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+    }
+    .nav-btn svg { width: 15px; height: 15px; }
+    .nav-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .nav-btn:hover:not(.active) { color: var(--text); }
+
+    /* PANELS */
+    .panels { flex: 1; overflow: hidden; position: relative; }
+    .panel { position: absolute; inset: 0; overflow-y: auto; display: none; padding: 14px; }
+    .panel.active { display: block; }
+
+    /* SECTION HEADERS */
+    .section-header {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--text2);
+      margin: 0 0 10px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* FORM ELEMENTS */
+    .field { margin-bottom: 10px; }
+    .field label {
+      display: block;
+      font-size: 11px;
+      color: var(--text2);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+    .field input, .field select, .field textarea {
+      width: 100%;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 12px;
+      padding: 7px 9px;
+      outline: none;
+      transition: border-color .15s;
+    }
+    .field input:focus, .field select:focus { border-color: var(--accent); }
+    .field select { cursor: pointer; }
+    .field input::placeholder { color: var(--text3); }
+
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+
+    /* BUTTONS */
+    .btn {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 7px 13px;
+      border-radius: var(--radius);
+      border: none;
+      font-family: var(--font);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: var(--accent2); }
+    .btn-ghost { background: var(--bg3); color: var(--text2); border: 1px solid var(--border); }
+    .btn-ghost:hover { color: var(--text); border-color: var(--text3); }
+    .btn-danger { background: transparent; color: var(--red); border: 1px solid #3f1515; }
+    .btn-danger:hover { background: #3f1515; }
+    .btn-sm { padding: 4px 9px; font-size: 11px; }
+    .btn-full { width: 100%; justify-content: center; }
+    .btn-row { display: flex; gap: 7px; margin-top: 4px; }
+
+    /* CARDS / LIST ITEMS */
+    .card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+      margin-bottom: 7px;
+    }
+    .card-row { display: flex; align-items: center; gap: 8px; }
+    .card-title { font-weight: 500; color: var(--text); font-size: 12px; flex: 1; }
+    .card-sub { font-size: 11px; color: var(--text2); margin-top: 2px; }
+    .card-actions { display: flex; gap: 5px; }
+
+    /* BADGES */
+    .badge {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    .badge-in  { background: #0c2a1a; color: var(--green); }
+    .badge-out { background: #1a1408; color: var(--orange); }
+    .badge-type { background: var(--bg3); color: var(--text2); }
+    .badge-conflict { background: #2a0c0c; color: var(--red); }
+    .badge-ok { background: #0c1a0c; color: var(--green); }
+
+    /* DIVIDER */
+    .divider { height: 1px; background: var(--border); margin: 14px 0; }
+
+    /* ALERTS */
+    .alert {
+      padding: 9px 12px;
+      border-radius: var(--radius);
+      font-size: 11px;
+      margin-bottom: 10px;
+      display: flex; align-items: flex-start; gap: 7px;
+    }
+    .alert-error { background: #2a0c0c; color: #fca5a5; border: 1px solid #5c1a1a; }
+    .alert-success { background: #0c1a0c; color: #86efac; border: 1px solid #1a4a1a; }
+    .alert-warn { background: #1a1408; color: #fcd34d; border: 1px solid #4a3a0a; }
+    .alert-info { background: #0c1a2a; color: #93c5fd; border: 1px solid #1a3a5a; }
+    .alert svg { flex-shrink: 0; margin-top: 1px; }
+
+    /* STATUS BAR */
+    .status-bar {
+      padding: 6px 14px;
+      background: var(--bg2);
+      border-top: 1px solid var(--border);
+      font-size: 10px;
+      color: var(--text2);
+      display: flex; align-items: center; gap: 6px;
+      flex-shrink: 0;
+    }
+    .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+    .status-dot.error { background: var(--red); }
+
+    /* CONSOLE SPECIFIC */
+    .console-section { margin-bottom: 18px; }
+    .console-section-title {
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .1em; color: var(--accent);
+      padding: 4px 8px; background: #0c1a2a;
+      border-left: 2px solid var(--accent);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      margin-bottom: 10px;
+    }
+    .channel-row {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px;
+      margin-bottom: 6px;
+    }
+    .channel-num {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text3);
+      width: 24px;
+      flex-shrink: 0;
+    }
+    .channel-name {
+      font-weight: 500;
+      font-size: 12px;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+    .port-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+    .port-field label {
+      display: block;
+      font-size: 10px;
+      color: var(--text3);
+      margin-bottom: 3px;
+    }
+    .port-field select {
+      width: 100%;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+      font-size: 11px;
+      padding: 5px 7px;
+      font-family: var(--font);
+    }
+    .port-field select:focus { outline: none; border-color: var(--accent); }
+    .port-field select.has-value { border-color: #1d4a2a; background: #0c1a10; }
+
+    /* CONFLICTS */
+    .conflict-item {
+      background: #2a0c0c;
+      border: 1px solid #5c1a1a;
+      border-radius: var(--radius);
+      padding: 9px 12px;
+      margin-bottom: 7px;
+      font-size: 11px;
+      color: #fca5a5;
+    }
+    .conflict-item strong { color: #fff; }
+
+    /* EMPTY STATE */
+    .empty {
+      text-align: center;
+      padding: 32px 16px;
+      color: var(--text3);
+      font-size: 12px;
+    }
+    .empty svg { width: 32px; height: 32px; margin: 0 auto 8px; display: block; opacity: .3; }
+
+    /* SEARCH */
+    .search-wrap { position: relative; margin-bottom: 12px; }
+    .search-wrap svg { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); width: 13px; height: 13px; color: var(--text3); }
+    .search-wrap input { padding-left: 28px; }
+
+    /* SCROLLBAR */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    /* SPINNER */
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+      display: inline-block;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .hidden { display: none !important; }
+
+    /* SETUP WIZARD */
+    .wizard-step { text-align: center; padding: 20px 10px; }
+    .wizard-step h2 { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+    .wizard-step p { color: var(--text2); font-size: 12px; line-height: 1.6; margin-bottom: 16px; }
+    .wizard-icon { font-size: 32px; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <button class="nav-btn active" onclick="switchPanel('devices')" id="nav-devices">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+    Devices
+  </button>
+  <button class="nav-btn" onclick="switchPanel('ports')" id="nav-ports">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>
+    Ports
+  </button>
+  <button class="nav-btn" onclick="switchPanel('connections')" id="nav-connections">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+    Connect
+  </button>
+  <button class="nav-btn" onclick="switchPanel('console')" id="nav-console">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="15" rx="2"/><path d="M16 2l-4 5-4-5"/><line x1="8" y1="12" x2="8" y2="12.01"/><line x1="12" y1="12" x2="12" y2="12.01"/><line x1="16" y1="12" x2="16" y2="12.01"/></svg>
+    Console
+  </button>
+  <button class="nav-btn" onclick="switchPanel('checks')" id="nav-checks">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+    Checks
+  </button>
+</nav>
+
+<!-- PANELS -->
+<div class="panels">
+
+  <!-- SETUP (shown on first run) -->
+  <div class="panel active" id="panel-setup">
+    <div class="wizard-step">
+      <div class="wizard-icon">🎛️</div>
+      <h2>Audio Routing</h2>
+      <p>Single source of truth for your signal system. Set up your workbook sheets to get started.</p>
+      <button class="btn btn-primary btn-full" onclick="setupWorkbook()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+        Set Up Workbook Sheets
+      </button>
+      <p style="margin-top:12px; font-size:11px;">This will create: <strong>Devices, Ports, Connections, Console</strong> sheets.</p>
+    </div>
+  </div>
+
+  <!-- DEVICES -->
+  <div class="panel hidden" id="panel-devices">
+    <p class="section-header">Devices</p>
+
+    <div class="field">
+      <label>Device Name</label>
+      <input type="text" id="dev-name" placeholder="e.g. Nuendo Workstation" />
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>Type</label>
+        <select id="dev-type">
+          <option value="">— select —</option>
+          <option>DAW</option>
+          <option>Console</option>
+          <option>Stage Box</option>
+          <option>Matrix / Router</option>
+          <option>Delay Processor</option>
+          <option>Amp Rack</option>
+          <option>Dante Device</option>
+          <option>TiMax</option>
+          <option>Orange Box</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Notes</label>
+        <input type="text" id="dev-notes" placeholder="optional" />
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="addDevice()">Add Device</button>
+      <button class="btn btn-ghost" onclick="loadDeviceList()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        Refresh
+      </button>
+    </div>
+
+    <div class="divider"></div>
+    <div id="device-list"></div>
+  </div>
+
+  <!-- PORTS -->
+  <div class="panel hidden" id="panel-ports">
+    <p class="section-header">Ports</p>
+
+    <div class="field">
+      <label>Device</label>
+      <select id="port-device" onchange="updatePortDeviceLabel()">
+        <option value="">— select device —</option>
+      </select>
+    </div>
+    <div class="row3">
+      <div class="field">
+        <label>Direction</label>
+        <select id="port-dir">
+          <option value="IN">IN</option>
+          <option value="OUT">OUT</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Port #</label>
+        <input type="number" id="port-num" placeholder="1" min="1" />
+      </div>
+      <div class="field">
+        <label>Alias</label>
+        <input type="text" id="port-alias" placeholder="optional" />
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="addPort()">Add Port</button>
+      <button class="btn btn-ghost btn-sm" onclick="bulkAddPorts()">Bulk Add…</button>
+      <button class="btn btn-ghost" onclick="loadPortList()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+      </button>
+    </div>
+
+    <!-- Bulk add modal inline -->
+    <div id="bulk-wrap" class="hidden">
+      <div class="divider"></div>
+      <p class="section-header">Bulk Add Ports</p>
+      <div class="row2">
+        <div class="field"><label>From #</label><input type="number" id="bulk-from" value="1" min="1" /></div>
+        <div class="field"><label>To #</label><input type="number" id="bulk-to" value="8" min="1" /></div>
+      </div>
+      <div class="field">
+        <label>Direction</label>
+        <select id="bulk-dir"><option value="IN">IN</option><option value="OUT">OUT</option></select>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary btn-sm" onclick="confirmBulkAdd()">Add Ports</button>
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('bulk-wrap').classList.add('hidden')">Cancel</button>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+    <div class="search-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      <input type="text" id="port-search" placeholder="Search ports…" oninput="filterPortList()" />
+    </div>
+    <div id="port-filter-row" style="margin-bottom:10px; display:flex; gap:6px;">
+      <select id="port-filter-device" onchange="filterPortList()" style="flex:1; background:var(--bg3); border:1px solid var(--border); border-radius:var(--radius); color:var(--text); font-size:11px; padding:5px 7px;">
+        <option value="">All devices</option>
+      </select>
+      <select id="port-filter-dir" onchange="filterPortList()" style="background:var(--bg3); border:1px solid var(--border); border-radius:var(--radius); color:var(--text); font-size:11px; padding:5px 7px;">
+        <option value="">Both</option>
+        <option value="IN">IN</option>
+        <option value="OUT">OUT</option>
+      </select>
+    </div>
+    <div id="port-list"></div>
+  </div>
+
+  <!-- CONNECTIONS -->
+  <div class="panel hidden" id="panel-connections">
+    <p class="section-header">Connections</p>
+
+    <div class="field">
+      <label>Source (Output)</label>
+      <select id="conn-src">
+        <option value="">— select output port —</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Destination (Input)</label>
+      <select id="conn-dst">
+        <option value="">— select input port —</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Notes</label>
+      <input type="text" id="conn-notes" placeholder="optional" />
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="addConnection()">Add Connection</button>
+      <button class="btn btn-ghost" onclick="loadConnectionList()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+      </button>
+    </div>
+
+    <div class="divider"></div>
+    <div class="search-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      <input type="text" id="conn-search" placeholder="Search connections…" oninput="filterConnectionList()" />
+    </div>
+    <div id="connection-list"></div>
+  </div>
+
+  <!-- CONSOLE -->
+  <div class="panel hidden" id="panel-console">
+    <p class="section-header">Quantum Console</p>
+    <div id="console-alert" class="alert alert-info hidden">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12" y2="16.01"/></svg>
+      Select a port in any field to record the connection automatically.
+    </div>
+    <div id="console-content"></div>
+  </div>
+
+  <!-- CHECKS -->
+  <div class="panel hidden" id="panel-checks">
+    <p class="section-header">System Checks</p>
+    <button class="btn btn-primary btn-full" onclick="runChecks()" style="margin-bottom:14px;">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+      Run All Checks
+    </button>
+    <div id="checks-content">
+      <div class="empty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+        Run checks to validate your system
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- STATUS BAR -->
+<div class="status-bar">
+  <div class="status-dot" id="status-dot"></div>
+  <span id="status-text">Initializing…</span>
+</div>
+
+<script src="taskpane.js"></script>
+</body>
+</html>
