@@ -13,12 +13,12 @@
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="Audio Routing" />
   <Description DefaultValue="Single source of truth for complex audio system routing. Manage devices, ports, connections and console assignments from one place." />
-  <IconUrl DefaultValue="https://YOUR-GITHUB-USERNAME.github.io/audio-routing-addin/icon-32.png" />
-  <HighResolutionIconUrl DefaultValue="https://YOUR-GITHUB-USERNAME.github.io/audio-routing-addin/icon-80.png" />
-  <SupportUrl DefaultValue="https://github.com/YOUR-GITHUB-USERNAME/audio-routing-addin" />
+  <IconUrl DefaultValue="https://csharp-github.github.io/audio-routing-addin/icon-32.png" />
+  <HighResolutionIconUrl DefaultValue="https://csharp-github.github.io/audio-routing-addin/icon-80.png" />
+  <SupportUrl DefaultValue="https://github.com/csharp-github/audio-routing-addin" />
 
   <AppDomains>
-    <AppDomain>https://YOUR-GITHUB-USERNAME.github.io</AppDomain>
+    <AppDomain>https://csharp-github.github.io</AppDomain>
   </AppDomains>
 
   <Hosts>
@@ -26,7 +26,7 @@
   </Hosts>
 
   <DefaultSettings>
-    <SourceLocation DefaultValue="https://YOUR-GITHUB-USERNAME.github.io/audio-routing-addin/taskpane.html" />
+    <SourceLocation DefaultValue="https://csharp-github.github.io/audio-routing-addin/taskpane.html" />
   </DefaultSettings>
 
   <Permissions>ReadWriteDocument</Permissions>
@@ -75,14 +75,14 @@
 
     <Resources>
       <bt:Images>
-        <bt:Image id="Icon.16x16" DefaultValue="https://YOUR-GITHUB-USERNAME.github.io/audio-routing-addin/icon-16.png"/>
-        <bt:Image id="Icon.32x32" DefaultValue="https://YOUR-GITHUB-USERNAME.github.io/audio-routing-addin/icon-32.png"/>
-        <bt:Image id="Icon.80x80" DefaultValue="https://YOUR-GITHUB-USERNAME.github.io/audio-routing-addin/icon-80.png"/>
+        <bt:Image id="Icon.16x16" DefaultValue="https://csharp-github.github.io/audio-routing-addin/icon-16.png"/>
+        <bt:Image id="Icon.32x32" DefaultValue="https://csharp-github.github.io/audio-routing-addin/icon-32.png"/>
+        <bt:Image id="Icon.80x80" DefaultValue="https://csharp-github.github.io/audio-routing-addin/icon-80.png"/>
       </bt:Images>
       <bt:Urls>
-        <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://github.com/YOUR-GITHUB-USERNAME/audio-routing-addin"/>
-        <bt:Url id="Commands.Url" DefaultValue="https://YOUR-GITHUB-USERNAME.github.io/audio-routing-addin/commands.html"/>
-        <bt:Url id="Taskpane.Url" DefaultValue="https://YOUR-GITHUB-USERNAME.github.io/audio-routing-addin/taskpane.html"/>
+        <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://github.com/csharp-github/audio-routing-addin"/>
+        <bt:Url id="Commands.Url" DefaultValue="https://csharp-github.github.io/audio-routing-addin/commands.html"/>
+        <bt:Url id="Taskpane.Url" DefaultValue="https://csharp-github.github.io/audio-routing-addin/taskpane.html"/>
       </bt:Urls>
       <bt:ShortStrings>
         <bt:String id="GetStarted.Title" DefaultValue="Audio Routing Add-in"/>
