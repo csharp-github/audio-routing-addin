@@ -104,15 +104,15 @@
     .io-pill-in  { background: var(--green-dim); color: var(--green); }
     .io-pill-out { background: var(--orange-dim); color: var(--orange); }
 
-    /* PORTS TAB */
-    .port-row { display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-bottom: 1px solid var(--border); font-size: 11px; }
+    /* PORTS TAB — V3: fixed height rows, no empty/filled height difference */
+    .port-row { display: flex; align-items: center; gap: 6px; padding: 0 8px; height: 32px; border-bottom: 1px solid var(--border); font-size: 11px; flex-shrink: 0; }
     .port-row:last-child { border-bottom: none; }
     .port-row:hover { background: var(--bg3); }
-    .port-num { font-family: var(--mono); color: var(--text3); width: 28px; flex-shrink: 0; }
-    .port-alias { flex: 1; background: transparent; border: none; color: var(--text); font-size: 11px; font-family: var(--font); padding: 2px 4px; border-radius: 3px; cursor: pointer; }
+    .port-num { font-family: var(--mono); color: var(--text3); width: 28px; flex-shrink: 0; line-height: 1; }
+    .port-alias { flex: 1; background: transparent; border: none; color: var(--text); font-size: 11px; font-family: var(--font); padding: 2px 4px; border-radius: 3px; cursor: pointer; height: 24px; }
     .port-alias:hover { background: var(--bg4); }
     .port-alias:focus { background: var(--bg4); outline: 1px solid var(--accent); }
-    .port-alias.empty { color: var(--text3); font-style: italic; }
+    .port-alias::placeholder { color: var(--text3); font-style: italic; }
 
     /* MATRIX */
     .matrix-panel { position: absolute; inset: 0; display: none; flex-direction: column; overflow: hidden; }
@@ -122,17 +122,13 @@
     .matrix-scroll { flex: 1; overflow: auto; position: relative; }
     .matrix-table { border-collapse: collapse; font-size: 11px; }
     .matrix-table th, .matrix-table td { border: 1px solid var(--border); }
-    /* corner */
     .m-corner { background: var(--bg); position: sticky; top: 0; left: 0; z-index: 30; min-width: 160px; padding: 6px 8px; }
-    /* row headers (device names, left column) */
     .m-row-dev { background: var(--bg2); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; padding: 6px 10px; cursor: pointer; user-select: none; white-space: nowrap; position: sticky; left: 0; z-index: 10; min-width: 160px; }
     .m-row-dev:hover { background: var(--bg3); }
     .m-row-port { background: var(--bg2); padding: 4px 8px; white-space: nowrap; position: sticky; left: 0; z-index: 10; min-width: 160px; font-size: 10px; color: var(--text2); }
-    /* col headers (device names, top row) */
     .m-col-dev { background: var(--bg2); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; padding: 6px 8px; cursor: pointer; user-select: none; white-space: nowrap; position: sticky; top: 0; z-index: 20; text-align: center; }
     .m-col-dev:hover { background: var(--bg3); }
     .m-col-port { background: var(--bg2); padding: 4px 6px; white-space: nowrap; position: sticky; top: 0; z-index: 20; font-size: 10px; color: var(--text2); text-align: center; writing-mode: vertical-rl; transform: rotate(180deg); height: 80px; vertical-align: bottom; }
-    /* cells */
     .m-cell { width: 26px; min-width: 26px; height: 26px; text-align: center; vertical-align: middle; cursor: pointer; transition: background .1s; }
     .m-cell:hover { background: var(--accent-dim) !important; }
     .m-cell.connected { background: var(--green-dim); }
@@ -156,17 +152,28 @@
     .modal h3 { font-size: 13px; font-weight: 600; margin-bottom: 12px; }
     .modal-actions { display: flex; gap: 8px; margin-top: 14px; justify-content: flex-end; }
 
-    /* CONSOLE */
-    .console-section-hdr { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--accent); padding: 4px 10px; background: var(--accent-dim); border-left: 2px solid var(--accent); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
-    .ch-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 6px; overflow: hidden; }
-    .ch-card-hdr { padding: 8px 10px; display: flex; align-items: center; gap: 8px; cursor: pointer; }
-    .ch-card-hdr:hover { background: var(--bg3); }
-    .ch-card-body { border-top: 1px solid var(--border); padding: 10px; display: none; }
-    .ch-card-body.open { display: block; }
-    .ch-port-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-    .ch-port-field label { display: block; font-size: 10px; color: var(--text3); margin-bottom: 3px; }
-    .ch-port-field select { width: 100%; background: var(--bg3); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 11px; padding: 5px 6px; }
-    .ch-port-field select.filled { border-color: #1d4a2a; background: #0c1a10; }
+    /* CONSOLE SECTION HEADER (kept) */
+    .console-section-hdr { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--accent); padding: 4px 10px; background: var(--accent-dim); border-left: 2px solid var(--accent); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+
+    /* V3: CONSOLE TABLE — flat spreadsheet layout */
+    .con-table { width: 100%; border-collapse: collapse; font-size: 11px; min-width: 400px; }
+    .con-table thead tr { background: var(--bg3); }
+    .con-table th { padding: 5px 6px; font-size: 9px; text-transform: uppercase; letter-spacing: .06em; color: var(--text3); font-weight: 600; text-align: left; border-bottom: 1px solid var(--border2); white-space: nowrap; }
+    .con-table tbody tr.con-row { border-bottom: 1px solid var(--border); }
+    .con-table tbody tr.con-row:hover { background: var(--bg3); }
+    .con-table tbody tr.con-row:last-child { border-bottom: none; }
+    .con-num { font-family: var(--mono); color: var(--text3); font-size: 10px; padding: 0 6px; text-align: center; white-space: nowrap; }
+    .con-w { padding: 0 4px; text-align: center; }
+    .con-name-cell { padding: 3px 4px; min-width: 90px; }
+    .con-name-input { width: 100%; background: transparent; border: none; color: var(--text); font-size: 11px; font-family: var(--font); padding: 3px 5px; border-radius: 3px; }
+    .con-name-input:hover { background: var(--bg4); }
+    .con-name-input:focus { background: var(--bg4); outline: 1px solid var(--accent); }
+    .con-name-input::placeholder { color: var(--text3); font-style: italic; }
+    .con-port-cell { padding: 3px 4px; min-width: 110px; }
+    .con-port-cell select { width: 100%; background: var(--bg3); border: 1px solid var(--border); border-radius: 3px; color: var(--text2); font-size: 10px; padding: 3px 4px; font-family: var(--font); cursor: pointer; }
+    .con-port-cell select:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+    .con-port-cell select.filled { border-color: #1d4a2a; background: #0c1a10; color: var(--text); }
+    .con-del-cell { padding: 0 4px; text-align: center; }
 
     /* SEARCH */
     .search-wrap { position: relative; margin-bottom: 10px; }
@@ -227,7 +234,11 @@
   <!-- DEVICES -->
   <div class="panel hidden" id="panel-devices">
     <p class="sec-header">Devices</p>
-    <div class="field"><label>Device Name</label><input type="text" id="dev-name" placeholder="e.g. Orange Box 2" /></div>
+    <!-- V3: Name + Alias on same row, then I/O row, then Notes -->
+    <div class="row2">
+      <div class="field"><label>Device Name</label><input type="text" id="dev-name" placeholder="e.g. Orange Box 2" /></div>
+      <div class="field"><label>Short Alias <span style="color:var(--text3);font-weight:400">(OB2, Q…)</span></label><input type="text" id="dev-alias" placeholder="optional" /></div>
+    </div>
     <div class="row2">
       <div class="field">
         <label>Inputs</label>
@@ -252,7 +263,8 @@
 
   <!-- PORTS -->
   <div class="panel hidden" id="panel-ports">
-    <p class="sec-header">Ports</p>
+    <!-- V3: "Port Names" header -->
+    <p class="sec-header">Port Names</p>
     <div class="row2" style="margin-bottom:10px;">
       <select id="port-filter-device" onchange="renderPortList()" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:12px;padding:6px 8px;">
         <option value="">All devices</option>
@@ -265,7 +277,8 @@
     </div>
     <div class="search-wrap">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-      <input type="text" id="port-search" placeholder="Search alias…" oninput="renderPortList()" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:12px;padding:6px 8px 6px 28px;" />
+      <!-- V3: placeholder updated to "Search name…" -->
+      <input type="text" id="port-search" placeholder="Search name…" oninput="renderPortList()" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:12px;padding:6px 8px 6px 28px;" />
     </div>
     <div id="port-list"></div>
   </div>
@@ -290,7 +303,6 @@
       Console is a device. Add it in Devices tab first, then assign its ports here.
     </div>
 
-    <!-- Add channel/group/aux/matrix section -->
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:12px;">
       <div class="sec-header" style="margin-bottom:10px;">Add Console Strip</div>
       <div class="row2">
