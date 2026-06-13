@@ -751,14 +751,14 @@ async function addConsoleStrip() {
   const type  = v('con-type');
   const width = v('con-width');
   const name  = v('con-name').trim();
-  const id = 'CS' + Date.now();
+  const count = Math.max(1, Math.min(384, parseInt(v('con-count'))||1));
 
   // Pre-check channel limit
   if (type === 'channel') {
-    const addedInputs = width==='stereo' ? 2 : 1;
+    const addedInputs = (width==='stereo' ? 2 : 1) * count;
     const current = calcChannelInputs();
     if (current + addedInputs > MAX_CHANNEL_INPUTS) {
-      if (!confirm(`Adding this ${width} channel would bring you to ${current+addedInputs}/${MAX_CHANNEL_INPUTS} inputs — over the limit.\n\nAdd anyway?`)) return;
+      if (!confirm(`Adding ${count} ${width} channel${count>1?'s':''} would bring you to ${current+addedInputs}/${MAX_CHANNEL_INPUTS} inputs — over the limit.\n\nAdd anyway?`)) return;
     }
   }
 
@@ -766,14 +766,22 @@ async function addConsoleStrip() {
     await Excel.run(async ctx => {
       const sh = ctx.workbook.worksheets.getItem(SHEET.CONSOLE);
       const u = sh.getUsedRange(); u.load('rowCount'); await ctx.sync();
-      sh.getRange(`A${u.rowCount+1}`).getResizedRange(0,11).values =
-        [[id, type, width, name, '', '', '', '', '', '', '', '']];
+      let nr = u.rowCount + 1;
+      for (let i = 0; i < count; i++) {
+        const id = 'CS' + (Date.now() + i);
+        // If bulk add with a name, append a number suffix: "Kick 1", "Kick 2"…
+        const stripName = count > 1 ? (name ? `${name} ${i+1}` : '') : name;
+        sh.getRange(`A${nr}`).getResizedRange(0,11).values =
+          [[id, type, width, stripName, '', '', '', '', '', '', '', '']];
+        nr++;
+      }
       await ctx.sync();
     });
     clearFields(['con-name']);
+    document.getElementById('con-count').value = '1';
     await loadConsole();
     renderConsole();
-    setStatus(`${type} strip added`);
+    setStatus(`${count} ${width} ${type} strip${count>1?'s':''} added`);
   } catch(e) { setStatus('Error: '+e.message, true); }
 }
 
@@ -798,27 +806,29 @@ async function toggleStripWidth(stripId) {
   } catch(e) { setStatus('Error: '+e.message, true); }
 }
 
-// ---- Searchable port popover ----
-function openPortPopover(stripId, fieldKey, isStereo, anchorEl) {
+// ---- Port picker modal dialog ----
+// State for what's currently being edited
+let _pickerState = null; // { stripId, fieldKey, isStereo }
+
+function openPortPopover(stripId, fieldKey, isStereo) {
   closePortPopover();
   const strip = S.consoleStrips.find(s => s.id===stripId);
   if (!strip) return;
 
-  // Determine which ports are relevant for this field
   const isInput = ['mainIn','altIn','insARet','insBRet'].includes(fieldKey);
   const allPorts = S.ports.filter(p => p.dir===(isInput?'IN':'OUT'));
-
   const currentVal = strip[fieldKey]||'';
   const [curL, curR] = splitPair(currentVal);
 
-  const pop = document.createElement('div');
-  pop.className = 'port-popover';
-  pop.id = 'port-popover';
+  _pickerState = { stripId, fieldKey, isStereo };
+
+  const fieldNames = { mainIn:'Main In', altIn:'Alt In', insASnd:'InsA Send', insARet:'InsA Return', insBSnd:'InsB Send', insBRet:'InsB Return', directOut:'Direct Out', output:'Output' };
+  const title = `${fieldNames[fieldKey]||fieldKey}${isStereo?' — Stereo':''}`;
 
   function sideHtml(side, curVal, label) {
     return `
       <div class="pop-side">
-        <div class="pop-side-label">${label}</div>
+        ${isStereo ? `<div class="pop-side-label">${label}</div>` : ''}
         <div class="pop-search-wrap">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
           <input type="text" class="pop-search" id="pop-search-${side}" placeholder="Search ports…" autocomplete="off"
@@ -829,7 +839,8 @@ function openPortPopover(stripId, fieldKey, isStereo, anchorEl) {
             <span style="color:var(--text3)">— none —</span>
           </div>
           ${allPorts.map(p => `
-            <div class="pop-item ${p.id===curVal?'selected':''}" data-label="${esc(portFullLabel(p)).toLowerCase()}" onclick="selectPopoverPort('${stripId}','${fieldKey}','${side}','${p.id}')">
+            <div class="pop-item ${p.id===curVal?'selected':''}" data-label="${esc(portFullLabel(p)).toLowerCase()}"
+              onclick="selectPopoverPort('${stripId}','${fieldKey}','${side}','${p.id}')">
               <span class="badge ${p.dir==='IN'?'badge-in':'badge-out'}" style="font-size:8px;">${p.dir}</span>
               ${esc(portFullLabel(p))}
             </div>`).join('')}
@@ -837,47 +848,36 @@ function openPortPopover(stripId, fieldKey, isStereo, anchorEl) {
       </div>`;
   }
 
-  pop.innerHTML = isStereo
-    ? `<div class="pop-inner pop-stereo">
-        ${sideHtml('L', curL, 'Left / Ch 1')}
-        <div class="pop-divider"></div>
-        ${sideHtml('R', curR, 'Right / Ch 2')}
-       </div>`
-    : `<div class="pop-inner">${sideHtml('L', currentVal, '')}</div>`;
+  const backdrop = document.createElement('div');
+  backdrop.className = 'port-modal-backdrop';
+  backdrop.id = 'port-modal-backdrop';
+  backdrop.onclick = (e) => { if (e.target===backdrop) closePortPopover(); };
 
-  document.body.appendChild(pop);
+  backdrop.innerHTML = `
+    <div class="port-modal">
+      <div class="port-modal-header">
+        <h4>${esc(title)}</h4>
+        <button class="btn btn-ghost btn-xs" onclick="closePortPopover()">✕ Close</button>
+      </div>
+      <div class="port-modal-body${isStereo?' stereo':''}">
+        ${isStereo
+          ? `${sideHtml('L', curL, 'Left / Ch 1')}<div class="pop-divider"></div>${sideHtml('R', curR, 'Right / Ch 2')}`
+          : sideHtml('L', currentVal, '')}
+      </div>
+    </div>`;
 
-  // Position below anchor
-  const rect = anchorEl.getBoundingClientRect();
-  const popW = isStereo ? 460 : 240;
-  let left = rect.left;
-  if (left + popW > window.innerWidth - 8) left = window.innerWidth - popW - 8;
-  pop.style.left = left + 'px';
-  pop.style.top  = (rect.bottom + 4) + 'px';
-  pop.style.width = popW + 'px';
+  document.body.appendChild(backdrop);
 
-  _popover = { stripId, fieldKey, isStereo };
-
-  // Focus search
   setTimeout(() => {
     const inp = document.getElementById('pop-search-L');
     if (inp) inp.focus();
   }, 30);
-
-  // Close on outside click
-  setTimeout(() => document.addEventListener('click', onOutsidePopover, {once:true}), 50);
-}
-
-function onOutsidePopover(e) {
-  const pop = document.getElementById('port-popover');
-  if (pop && !pop.contains(e.target)) closePortPopover();
-  else setTimeout(() => document.addEventListener('click', onOutsidePopover, {once:true}), 50);
 }
 
 function closePortPopover() {
-  const pop = document.getElementById('port-popover');
-  if (pop) pop.remove();
-  _popover = null;
+  const el = document.getElementById('port-modal-backdrop');
+  if (el) el.remove();
+  _pickerState = null;
 }
 
 function filterPopoverList(side) {
@@ -885,15 +885,13 @@ function filterPopoverList(side) {
   const list = document.getElementById(`pop-list-${side}`);
   if (!list) return;
   list.querySelectorAll('.pop-item').forEach(item => {
-    const lbl = item.dataset.label||'';
-    item.style.display = (!q || lbl.includes(q)) ? '' : 'none';
+    item.style.display = (!q || (item.dataset.label||'').includes(q)) ? '' : 'none';
   });
 }
 
 async function selectPopoverPort(stripId, fieldKey, side, portId) {
   const strip = S.consoleStrips.find(s => s.id===stripId);
   if (!strip) return;
-
   const isStereo = strip.width==='stereo';
   let newVal;
   if (!isStereo) {
@@ -902,12 +900,10 @@ async function selectPopoverPort(stripId, fieldKey, side, portId) {
     const [curL, curR] = splitPair(strip[fieldKey]||'');
     newVal = side==='L' ? joinPair(portId, curR) : joinPair(curL, portId);
   }
-
   const colMap = { mainIn:5, altIn:6, insASnd:7, insARet:8, insBSnd:9, insBRet:10, directOut:11, output:12 };
   const colNum = colMap[fieldKey];
   if (!colNum) return;
   const colLetter = String.fromCharCode(64 + colNum);
-
   try {
     await Excel.run(async ctx => {
       const sh = ctx.workbook.worksheets.getItem(SHEET.CONSOLE);
@@ -918,27 +914,14 @@ async function selectPopoverPort(stripId, fieldKey, side, portId) {
       await ctx.sync();
     });
     strip[fieldKey] = newVal;
-    setStatus('Port assignment saved');
-
-    // Refresh popover selection highlights and the cell button label
+    // Update the button label in the table without full re-render
     const btn = document.querySelector(`[data-strip="${stripId}"][data-field="${fieldKey}"]`);
-    if (btn) btn.textContent = pairLabel(newVal, isStereo) || '—';
-    if (btn) btn.classList.toggle('filled', !!newVal);
-
-    // If stereo, keep popover open so user can pick the other side
+    if (btn) { btn.textContent = pairLabel(newVal, isStereo)||'—'; btn.classList.toggle('filled', !!newVal); }
+    setStatus('Port assignment saved');
+    // For stereo: re-open modal with fresh selection state so both sides stay editable
     if (isStereo) {
-      // Refresh selection state in list
-      const list = document.getElementById(`pop-list-${side}`);
-      if (list) {
-        list.querySelectorAll('.pop-item').forEach(item => item.classList.remove('selected'));
-        if (portId) {
-          const match = [...list.querySelectorAll('.pop-item')].find(item => item.onclick?.toString().includes(portId));
-          // re-render popover to show updated selection
-        }
-        // Re-open with updated strip state
-        const anchor = document.querySelector(`[data-strip="${stripId}"][data-field="${fieldKey}"]`);
-        if (anchor) { closePortPopover(); openPortPopover(stripId, fieldKey, true, anchor); }
-      }
+      closePortPopover();
+      openPortPopover(stripId, fieldKey, true);
     } else {
       closePortPopover();
     }
@@ -988,7 +971,7 @@ function renderConsole() {
         const filled = !!val;
         const label  = pairLabel(val, isStereo);
         return `<button class="con-port-btn ${filled?'filled':''}" data-strip="${s.id}" data-field="${fieldKey}"
-          onclick="openPortPopover('${s.id}','${fieldKey}',${isStereo},this)">${esc(label)}</button>`;
+          onclick="openPortPopover('${s.id}','${fieldKey}',${isStereo})">${esc(label)}</button>`;
       }
 
       html += `<tr class="con-row">
