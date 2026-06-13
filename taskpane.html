@@ -135,25 +135,20 @@
       padding: 6px 8px;
     }
 
-    /* Column DEVICE header: sticky top, rotated CCW to match port headers */
+    /* Column DEVICE header: sticky top:0, horizontal text, accent border bottom */
     .m-col-dev {
       background: var(--bg2);
       font-size: 10px; font-weight: 600;
       text-transform: uppercase; letter-spacing: .06em;
-      padding: 4px 2px;
+      padding: 5px 4px 4px;
       cursor: pointer; user-select: none;
       position: sticky; top: 0;
       z-index: 21;
-      /* V4: rotate CCW same as port headers */
-      writing-mode: vertical-rl;
-      transform: rotate(180deg);
-      white-space: nowrap;
-      width: 28px; min-width: 28px;
-      height: 110px;
-      vertical-align: bottom;
       text-align: center;
+      white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      max-width: 120px;
       border-bottom: 2px solid var(--accent-dim);
     }
     .m-col-dev:hover { background: var(--bg3); }
@@ -161,7 +156,7 @@
     /* Column PORT header: sticky top (second row), rotated CCW */
     .m-col-port {
       background: var(--bg2);
-      position: sticky; top: 110px; /* height of device row */
+      position: sticky; top: 29px; /* height of device row */
       z-index: 20;
       width: 28px; min-width: 28px;
       height: 90px;
@@ -349,160 +344,3 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
     Devices
   </button>
-  <button class="nav-btn" onclick="switchPanel('ports')" id="nav-ports">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3"/></svg>
-    Ports
-  </button>
-  <button class="nav-btn" onclick="switchPanel('matrix')" id="nav-matrix">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-    Matrix
-  </button>
-  <button class="nav-btn" onclick="switchPanel('console')" id="nav-console">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="15" rx="2"/><path d="M16 2l-4 5-4-5"/><line x1="8" y1="12" x2="8" y2="12.01"/><line x1="12" y1="12" x2="12" y2="12.01"/><line x1="16" y1="12" x2="16" y2="12.01"/></svg>
-    Console
-  </button>
-  <button class="nav-btn" onclick="switchPanel('checks')" id="nav-checks">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
-    Checks
-  </button>
-</nav>
-
-<div class="panels">
-
-  <!-- SETUP -->
-  <div class="panel active" id="panel-setup">
-    <div class="wizard-step">
-      <div style="font-size:36px; margin-bottom:12px;">🎛️</div>
-      <h2>Audio Routing</h2>
-      <p>Single source of truth for complex signal systems.<br>Enter once, view from any perspective.</p>
-      <button class="btn btn-primary btn-full" onclick="setupWorkbook()">Set Up Workbook Sheets</button>
-      <p style="margin-top:12px; font-size:11px; color:var(--text3)">Creates: Devices · Ports · Connections · Console</p>
-    </div>
-  </div>
-
-  <!-- DEVICES -->
-  <div class="panel hidden" id="panel-devices">
-    <p class="sec-header">Devices</p>
-    <div class="row2">
-      <div class="field"><label>Device Name</label><input type="text" id="dev-name" placeholder="e.g. Orange Box 2" /></div>
-      <div class="field"><label>Short Alias <span style="color:var(--text3);font-weight:400">(OB2, Q…)</span></label><input type="text" id="dev-alias" placeholder="optional" /></div>
-    </div>
-    <div class="row2">
-      <div class="field"><label>Inputs</label><input type="number" id="dev-inputs" placeholder="0" min="0" value="0" /></div>
-      <div class="field"><label>Outputs</label><input type="number" id="dev-outputs" placeholder="0" min="0" value="0" /></div>
-    </div>
-    <div class="field"><label>Notes</label><input type="text" id="dev-notes" placeholder="optional" /></div>
-    <div class="btn-row">
-      <button class="btn btn-primary" onclick="addDevice()">Add Device</button>
-      <button class="btn btn-ghost" onclick="loadAll()">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-        Refresh
-      </button>
-    </div>
-    <div class="divider"></div>
-    <div id="device-list"></div>
-  </div>
-
-  <!-- PORTS -->
-  <div class="panel hidden" id="panel-ports">
-    <p class="sec-header">Port Names</p>
-    <div class="row2" style="margin-bottom:10px;">
-      <select id="port-filter-device" onchange="renderPortList()" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:12px;padding:6px 8px;">
-        <option value="">All devices</option>
-      </select>
-      <select id="port-filter-dir" onchange="renderPortList()" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:12px;padding:6px 8px;">
-        <option value="">IN + OUT</option>
-        <option value="IN">Inputs only</option>
-        <option value="OUT">Outputs only</option>
-      </select>
-    </div>
-    <div class="search-wrap">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-      <input type="text" id="port-search" placeholder="Search name…" oninput="renderPortList()" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:12px;padding:6px 8px 6px 28px;" />
-    </div>
-    <div id="port-list"></div>
-  </div>
-
-  <!-- MATRIX -->
-  <div class="matrix-panel" id="panel-matrix">
-    <div class="matrix-toolbar">
-      <button class="btn btn-ghost btn-sm" onclick="expandAll()">Expand All</button>
-      <button class="btn btn-ghost btn-sm" onclick="collapseAll()">Collapse All</button>
-      <span id="matrix-conn-count" style="margin-left:auto;"></span>
-    </div>
-    <div class="matrix-scroll" id="matrix-scroll">
-      <div id="matrix-container"></div>
-    </div>
-  </div>
-
-  <!-- CONSOLE -->
-  <div class="panel hidden" id="panel-console">
-    <p class="sec-header">Console</p>
-
-    <!-- V4: live channel input counter -->
-    <div class="con-input-counter" id="con-input-counter">
-      <div style="font-size:10px;color:var(--text2);">Channel inputs: — / 384</div>
-    </div>
-
-    <div class="alert alert-info" style="margin-bottom:12px;">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12" y2="16.01"/></svg>
-      Console is a device. Add it in Devices tab first, then assign its ports here.
-    </div>
-
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:12px;">
-      <div class="sec-header" style="margin-bottom:10px;">Add Console Strip</div>
-      <div class="row2">
-        <div class="field">
-          <label>Type</label>
-          <select id="con-type">
-            <option value="channel">Channel</option>
-            <option value="aux">Aux</option>
-            <option value="group">Group</option>
-            <option value="matrix">Matrix</option>
-            <option value="directout">Direct Out</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Width</label>
-          <select id="con-width">
-            <option value="mono">Mono</option>
-            <option value="stereo">Stereo</option>
-          </select>
-        </div>
-      </div>
-      <div class="row2">
-        <div class="field"><label>Name / Label</label><input type="text" id="con-name" placeholder="e.g. Kick Drum" /></div>
-        <div class="field">
-          <label>Count <span style="color:var(--text3);font-weight:400">(bulk add)</span></label>
-          <input type="number" id="con-count" value="1" min="1" max="384" />
-        </div>
-      </div>
-      <button class="btn btn-primary btn-sm" onclick="addConsoleStrip()">Add Strip</button>
-    </div>
-
-    <div id="console-content"></div>
-  </div>
-
-  <!-- CHECKS -->
-  <div class="panel hidden" id="panel-checks">
-    <p class="sec-header">System Checks</p>
-    <button class="btn btn-primary btn-full" onclick="runChecks()" style="margin-bottom:14px;">Run All Checks</button>
-    <div id="checks-content"><div class="empty">Run checks to validate your system</div></div>
-  </div>
-
-</div>
-
-<div class="status-bar">
-  <div class="status-dot" id="status-dot"></div>
-  <span id="status-text">Initializing…</span>
-</div>
-
-<div class="ctx-menu hidden" id="ctx-menu"></div>
-
-<div class="modal-backdrop hidden" id="modal-backdrop">
-  <div class="modal" id="modal-body"></div>
-</div>
-
-<script src="taskpane.js"></script>
-</body>
-</html>
