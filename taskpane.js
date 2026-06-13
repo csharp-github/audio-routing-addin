@@ -1,12 +1,21 @@
 // ============================================================
-// AUDIO ROUTING ADD-IN v2 — taskpane.js
+// AUDIO ROUTING ADD-IN v3 — taskpane.js
+// ============================================================
+// V3 CHANGES:
+//  - Device Alias field (short name: OB1, OB2, Q, etc.)
+//  - Port field "Alias" renamed to "Name" everywhere
+//  - Matrix expand state preserved after patching / device changes
+//  - Console: accordion replaced with flat spreadsheet table
+//  - Console: strip IDs hidden; rows numbered 1, 2, 3…
+//  - Display values: portLabel() used everywhere; internal IDs never shown
+//  - Port rows: consistent fixed height
 // ============================================================
 
 const SHEET = { DEVICES:'Devices', PORTS:'Ports', CONNECTIONS:'Connections', CONSOLE:'Console' };
 
 // Column indices (0-based)
 const COL = {
-  DEV:  { ID:0, NAME:1, NOTES:2 },
+  DEV:  { ID:0, NAME:1, ALIAS:2, NOTES:3 },                          // V3: added ALIAS col
   PORT: { ID:0, DEVICE_ID:1, DEVICE_NAME:2, DIR:3, NUM:4, ALIAS:5 },
   CONN: { ID:0, SRC_PORT_ID:1, SRC_LABEL:2, DST_PORT_ID:3, DST_LABEL:4, NOTES:5 },
   CON:  { ID:0, TYPE:1, WIDTH:2, NAME:3, MAIN_IN:4, ALT_IN:5, INS_A_SND:6, INS_A_RET:7, INS_B_SND:8, INS_B_RET:9, DIRECT_OUT:10, OUTPUT:11 }
@@ -15,6 +24,7 @@ const COL = {
 let S = { ready:false, devices:[], ports:[], connections:[], consoleStrips:[] };
 
 // Matrix expand state: deviceId -> { rowOpen, colOpen }
+// Persisted across re-renders — only reset on explicit collapseAll()
 let matrixState = {};
 
 // ============================================================
@@ -57,8 +67,8 @@ async function setupWorkbook() {
       }
       await ctx.sync();
       const hdrs = {
-        [SHEET.DEVICES]:     ['DeviceID','Name','Notes'],
-        [SHEET.PORTS]:       ['PortID','DeviceID','DeviceName','Direction','PortNum','Alias'],
+        [SHEET.DEVICES]:     ['DeviceID','Name','Alias','Notes'],       // V3: Alias added
+        [SHEET.PORTS]:       ['PortID','DeviceID','DeviceName','Direction','PortNum','Name'],  // V3: Name (was Alias)
         [SHEET.CONNECTIONS]: ['ConnID','SrcPortID','SrcLabel','DstPortID','DstLabel','Notes'],
         [SHEET.CONSOLE]:     ['StripID','Type','Width','Name','MainIn','AltIn','InsA_Send','InsA_Ret','InsB_Send','InsB_Ret','DirectOut','Output']
       };
@@ -94,7 +104,10 @@ async function loadDevices() {
     const r = sh.getUsedRange(); r.load('values');
     await ctx.sync();
     S.devices = r.values.slice(1).filter(r => r[COL.DEV.ID]).map(r => ({
-      id: r[COL.DEV.ID], name: r[COL.DEV.NAME], notes: r[COL.DEV.NOTES]
+      id:    r[COL.DEV.ID],
+      name:  r[COL.DEV.NAME],
+      alias: r[COL.DEV.ALIAS] || '',  // V3
+      notes: r[COL.DEV.NOTES]
     }));
   });
 }
@@ -151,6 +164,7 @@ function renderAll() {
 // ============================================================
 async function addDevice() {
   const name    = v('dev-name').trim();
+  const alias   = v('dev-alias').trim();           // V3
   const inputs  = parseInt(v('dev-inputs'))  || 0;
   const outputs = parseInt(v('dev-outputs')) || 0;
   const notes   = v('dev-notes').trim();
@@ -163,10 +177,10 @@ async function addDevice() {
 
   try {
     await Excel.run(async ctx => {
-      // Write device
+      // Write device — V3: includes alias in col C
       const dsh = ctx.workbook.worksheets.getItem(SHEET.DEVICES);
       const du = dsh.getUsedRange(); du.load('rowCount'); await ctx.sync();
-      dsh.getRange(`A${du.rowCount+1}`).getResizedRange(0, 2).values = [[devId, name, notes]];
+      dsh.getRange(`A${du.rowCount+1}`).getResizedRange(0, 3).values = [[devId, name, alias, notes]];
 
       // Write ports
       if (portRows.length) {
@@ -180,11 +194,13 @@ async function addDevice() {
       }
       await ctx.sync();
     });
-    clearFields(['dev-name','dev-notes']);
+    clearFields(['dev-name','dev-alias','dev-notes']);
     document.getElementById('dev-inputs').value  = '0';
     document.getElementById('dev-outputs').value = '0';
+    // V3: surgical reload — don't rebuild everything, preserve matrixState
     await loadDevices(); await loadPorts();
-    renderDeviceList(); refreshDeviceFilter(); renderPortList(); renderMatrix();
+    renderDeviceList(); refreshDeviceFilter(); renderPortList();
+    renderMatrix(); // matrixState is preserved; new device starts collapsed
     setStatus(`"${name}" added with ${inputs} inputs, ${outputs} outputs`);
   } catch(e) { setStatus('Error: '+e.message, true); }
 }
@@ -201,7 +217,7 @@ function renderDeviceList() {
     <div class="device-card" id="dcard-${d.id}">
       <div class="device-card-header" onclick="toggleDeviceCard('${d.id}')">
         <svg class="chevron" id="chev-${d.id}" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
-        <span class="card-title">${esc(d.name)}</span>
+        <span class="card-title">${esc(d.name)}${d.alias ? ` <span style="color:var(--text3);font-weight:400;font-size:10px;">[${esc(d.alias)}]</span>` : ''}</span>
         <div class="io-summary">
           ${ins  ? `<span class="io-pill io-pill-in">${ins} IN</span>`   : ''}
           ${outs ? `<span class="io-pill io-pill-out">${outs} OUT</span>` : ''}
@@ -209,6 +225,12 @@ function renderDeviceList() {
         <button class="btn btn-danger btn-xs" onclick="event.stopPropagation(); confirmDeleteDevice('${d.id}')">✕</button>
       </div>
       <div class="device-card-body" id="dbody-${d.id}">
+        <div class="field" style="margin-bottom:8px;">
+          <label>Short Alias <span style="color:var(--text3);font-weight:400">(e.g. OB1, Q, TM)</span></label>
+          <input type="text" id="alias-${d.id}" value="${esc(d.alias)}" placeholder="optional short name"
+            onblur="saveDeviceAlias('${d.id}', this.value)"
+            onkeydown="if(event.key==='Enter')this.blur()" />
+        </div>
         <div class="io-row">
           <div class="io-field">
             <label>Inputs</label>
@@ -233,6 +255,29 @@ function toggleDeviceCard(id) {
   const chev  = document.getElementById('chev-'+id);
   const open  = body.classList.toggle('open');
   chev.classList.toggle('open', open);
+}
+
+// V3: save device alias independently (no full re-render needed)
+async function saveDeviceAlias(devId, alias) {
+  const dev = S.devices.find(d => d.id === devId);
+  if (!dev || dev.alias === alias) return;
+  try {
+    await Excel.run(async ctx => {
+      const sh = ctx.workbook.worksheets.getItem(SHEET.DEVICES);
+      const r = sh.getUsedRange(); r.load('values'); await ctx.sync();
+      for (let i = 1; i < r.values.length; i++) {
+        if (r.values[i][COL.DEV.ID] === devId) {
+          sh.getRange(`C${i+1}`).values = [[alias]]; break;
+        }
+      }
+      await ctx.sync();
+    });
+    dev.alias = alias;
+    // Refresh device list header to show updated alias, and matrix labels
+    renderDeviceList();
+    renderMatrix();
+    setStatus(`Alias saved for ${dev.name}`);
+  } catch(e) { setStatus('Error: '+e.message, true); }
 }
 
 async function updateDeviceIO(devId, devName) {
@@ -304,8 +349,10 @@ async function updateDeviceIO(devId, devName) {
       }
     });
 
+    // V3: surgical reload — preserve matrixState expand state
     await loadPorts(); await loadConnections();
-    renderDeviceList(); renderPortList(); renderMatrix();
+    renderDeviceList(); renderPortList();
+    renderMatrix(); // matrixState unchanged — expansions survive I/O update
     setStatus(`${devName} I/O updated`);
   } catch(e) { setStatus('Error: '+e.message, true); console.error(e); }
 }
@@ -345,6 +392,8 @@ async function confirmDeleteDevice(id) {
       }
       await ctx.sync();
     });
+    // V3: clean up matrixState for deleted device
+    delete matrixState[id];
     await loadAll(); renderAll();
     setStatus(`"${dev.name}" deleted`);
   } catch(e) { setStatus('Error: '+e.message, true); }
@@ -358,7 +407,7 @@ function refreshDeviceFilter() {
   if (!sel) return;
   const cur = sel.value;
   sel.innerHTML = `<option value="">All devices</option>` +
-    S.devices.map(d => `<option value="${d.id}" ${d.id===cur?'selected':''}>${esc(d.name)}</option>`).join('');
+    S.devices.map(d => `<option value="${d.id}" ${d.id===cur?'selected':''}>${esc(d.name)}${d.alias?' ['+esc(d.alias)+']':''}</option>`).join('');
 }
 
 function renderPortList() {
@@ -369,6 +418,7 @@ function renderPortList() {
   let ports = S.ports.filter(p =>
     (!filterDev || p.deviceId === filterDev) &&
     (!filterDir || p.dir === filterDir) &&
+    // V3: search by alias (now called "name") or port number or device name
     (!q || (p.alias||'').toLowerCase().includes(q) || String(p.num).includes(q) || p.deviceName.toLowerCase().includes(q))
   );
 
@@ -379,17 +429,17 @@ function renderPortList() {
   const byDev = {};
   ports.forEach(p => { if (!byDev[p.deviceId]) byDev[p.deviceId]={name:p.deviceName,ports:[]}; byDev[p.deviceId].ports.push(p); });
 
+  // V3: "Name" label instead of "Alias"; fixed-height rows
   el.innerHTML = Object.values(byDev).map(g => `
     <div style="margin-bottom:12px;">
       <div class="sub-label">${esc(g.name)}</div>
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">
         ${g.ports.map(p => `
           <div class="port-row">
-            <span class="badge ${p.dir==='IN'?'badge-in':'badge-out'}" style="font-size:9px;">${p.dir}</span>
-            <span class="port-num">${p.num}</span>
-            <input class="port-alias ${p.alias?'':'empty'}" value="${esc(p.alias)}" placeholder="unnamed"
+            <span class="badge ${p.dir==='IN'?'badge-in':'badge-out'}" style="font-size:9px;flex-shrink:0;">${p.dir}</span>
+            <span class="port-num" style="flex-shrink:0;">${p.num}</span>
+            <input class="port-alias" value="${esc(p.alias)}" placeholder="port name…"
               onblur="savePortAlias('${p.id}', this.value)"
-              onfocus="this.classList.remove('empty')"
               onkeydown="if(event.key==='Enter')this.blur()" />
           </div>`).join('')}
       </div>
@@ -411,30 +461,41 @@ async function savePortAlias(portId, alias) {
       await ctx.sync();
     });
     port.alias = alias;
-    renderMatrix(); // refresh matrix labels too
-    setStatus(`Port alias saved`);
+    renderMatrix(); // refresh matrix labels
+    setStatus(`Port name saved`);  // V3: "name" not "alias"
   } catch(e) { setStatus('Error: '+e.message, true); }
 }
 
 // ============================================================
 // MATRIX
 // ============================================================
+
+// V3: portLabel uses device alias prefix when available for compact display
+// e.g. "OB1 · Input 3" instead of "Orange Box 1 / IN 3"
 function portLabel(p) {
-  return p.alias ? p.alias : `${p.dir} ${p.num}`;
+  if (p.alias) return p.alias;
+  return `${p.dir === 'IN' ? 'IN' : 'OUT'} ${p.num}`;
+}
+
+// V3: full display label for tooltips and connection labels
+function portFullLabel(p) {
+  const dev = S.devices.find(d => d.id === p.deviceId);
+  const devLabel = (dev && dev.alias) ? dev.alias : p.deviceName;
+  const portName = p.alias ? p.alias : `${p.dir} ${p.num}`;
+  return `${devLabel} · ${portName}`;
 }
 
 function renderMatrix() {
   const container = document.getElementById('matrix-container');
   const countEl   = document.getElementById('matrix-conn-count');
 
-  // Outputs = columns (top), Inputs = rows (left side)
   const devs = S.devices;
   if (!devs.length) { container.innerHTML = `<div class="empty" style="padding:40px">Add devices to see the routing matrix.</div>`; countEl.textContent=''; return; }
 
   countEl.textContent = `${S.connections.length} connection${S.connections.length!==1?'s':''}`;
 
-  // Build connection lookup: srcPortId -> dstPortId set
-  const connMap = {}; // srcId -> Set of dstIds
+  // Build connection lookup
+  const connMap = {};    // srcId -> Set of dstIds
   const connObjMap = {}; // "srcId|dstId" -> connection obj
   S.connections.forEach(c => {
     if (!connMap[c.srcId]) connMap[c.srcId] = new Set();
@@ -442,29 +503,24 @@ function renderMatrix() {
     connObjMap[c.srcId+'|'+c.dstId] = c;
   });
 
-  // Build table
-  // Structure:
-  //  - Row 0: corner | col-device headers (spanning their ports, or just 1 cell if collapsed)
-  //  - Row 1: empty  | col-port headers (hidden if device collapsed)
-  //  - Rows per input device:
-  //    - device row: device name | cells (spanning or single)
-  //    - port rows: port name | cells (hidden if device collapsed)
-
-  // Collect per-device ports
-  const devOuts = {}; // devId -> OUT ports
-  const devIns  = {}; // devId -> IN ports
+  const devOuts = {};
+  const devIns  = {};
   devs.forEach(d => {
     devOuts[d.id] = S.ports.filter(p => p.deviceId === d.id && p.dir === 'OUT').sort((a,b)=>a.num-b.num);
     devIns[d.id]  = S.ports.filter(p => p.deviceId === d.id && p.dir === 'IN').sort((a,b)=>a.num-b.num);
   });
 
-  // Determine which devices have any ports at all
-  const colDevs = devs.filter(d => devOuts[d.id].length > 0); // devices with outputs = columns
-  const rowDevs = devs.filter(d => devIns[d.id].length  > 0); // devices with inputs = rows
+  const colDevs = devs.filter(d => devOuts[d.id].length > 0);
+  const rowDevs = devs.filter(d => devIns[d.id].length  > 0);
 
   if (!colDevs.length || !rowDevs.length) {
     container.innerHTML = `<div class="empty" style="padding:40px">Add ports to devices to see the matrix.</div>`;
     return;
+  }
+
+  // V3: device header label uses alias when available
+  function devLabel(d) {
+    return d.alias ? `${esc(d.alias)} <span style="color:var(--text3);font-weight:400;font-size:9px">${esc(d.name)}</span>` : esc(d.name);
   }
 
   let html = `<table class="matrix-table" id="matrix-tbl" cellspacing="0">`;
@@ -476,7 +532,7 @@ function renderMatrix() {
     const isOpen = !!(matrixState[d.id] && matrixState[d.id].colOpen);
     const count  = devOuts[d.id].length;
     const span   = isOpen ? count : 1;
-    html += `<th class="m-col-dev" colspan="${span}" data-dev="${d.id}" onclick="toggleColDevice('${d.id}')" title="${esc(d.name)}">${esc(d.name)} <span style="color:var(--text3);font-weight:400">(${count})</span></th>`;
+    html += `<th class="m-col-dev" colspan="${span}" data-dev="${d.id}" onclick="toggleColDevice('${d.id}')" title="${esc(d.name)}">${devLabel(d)} <span style="color:var(--text3);font-weight:400">(${count})</span></th>`;
   });
   html += `</tr>`;
 
@@ -488,7 +544,7 @@ function renderMatrix() {
       html += `<th class="m-col-port col-dev-${d.id}-cell" style="font-style:italic;color:var(--text3);font-size:9px;">···</th>`;
     } else {
       devOuts[d.id].forEach(p => {
-        html += `<th class="m-col-port col-dev-${d.id}-cell" title="${esc(p.alias||'OUT '+p.num)}">${esc(portLabel(p))}</th>`;
+        html += `<th class="m-col-port col-dev-${d.id}-cell" title="${esc(portFullLabel(p))}">${esc(portLabel(p))}</th>`;
       });
     }
   });
@@ -497,30 +553,25 @@ function renderMatrix() {
   // ---- BODY ROWS ----
   html += `<tbody>`;
   rowDevs.forEach(rowDev => {
-    const rowOpen = !!(matrixState[rowDev.id] && matrixState[rowDev.id].rowOpen);
+    const rowOpen  = !!(matrixState[rowDev.id] && matrixState[rowDev.id].rowOpen);
     const rowCount = devIns[rowDev.id].length;
 
     // Device row
     html += `<tr>`;
-    html += `<td class="m-row-dev" rowspan="${rowOpen ? rowCount + 1 : 1}" onclick="toggleRowDevice('${rowDev.id}')" title="${esc(rowDev.name)}">${esc(rowDev.name)} <span style="color:var(--text3);font-size:10px">(${rowCount})</span></td>`;
+    html += `<td class="m-row-dev" rowspan="${rowOpen ? rowCount + 1 : 1}" onclick="toggleRowDevice('${rowDev.id}')" title="${esc(rowDev.name)}">${devLabel(rowDev)} <span style="color:var(--text3);font-size:10px">(${rowCount})</span></td>`;
 
-    // Cells for collapsed row — show aggregate dot if any connection exists
     colDevs.forEach(colDev => {
       const isColOpen = !!(matrixState[colDev.id] && matrixState[colDev.id].colOpen);
       if (!rowOpen && !isColOpen) {
-        // Both collapsed: show count of connections between these two devices
-        const ins  = devIns[rowDev.id];
-        const outs = devOuts[colDev.id];
+        const ins = devIns[rowDev.id], outs = devOuts[colDev.id];
         let connCount = 0;
         ins.forEach(inp => outs.forEach(outp => { if (connMap[outp.id] && connMap[outp.id].has(inp.id)) connCount++; }));
         html += `<td class="m-cell ${connCount>0?'connected':''} ${rowDev.id===colDev.id?'same-device':''}"
-          style="${connCount>0?'':'background:var(--bg3);'}"
           title="${connCount} connection(s) between ${esc(rowDev.name)} and ${esc(colDev.name)}"
           onclick="${rowDev.id!==colDev.id ? `toggleDeviceBlock('${rowDev.id}','${colDev.id}')` : ''}">
           ${connCount > 0 ? `<span style="font-size:9px;font-weight:600;color:var(--green)">${connCount}</span>` : ''}
         </td>`;
       } else if (!rowOpen && isColOpen) {
-        // Row collapsed, col open: one cell per output port
         devOuts[colDev.id].forEach(outp => {
           const anyConn = devIns[rowDev.id].some(inp => connMap[outp.id] && connMap[outp.id].has(inp.id));
           html += `<td class="m-cell ${anyConn?'connected':''} ${rowDev.id===colDev.id?'same-device':''}"
@@ -530,10 +581,8 @@ function renderMatrix() {
           </td>`;
         });
       } else {
-        // Row open, col collapsed: single cell
         if (!isColOpen) {
-          const ins  = devIns[rowDev.id];
-          const outs = devOuts[colDev.id];
+          const ins = devIns[rowDev.id], outs = devOuts[colDev.id];
           let connCount = 0;
           ins.forEach(inp => outs.forEach(outp => { if (connMap[outp.id] && connMap[outp.id].has(inp.id)) connCount++; }));
           html += `<td class="m-cell ${connCount>0?'connected':''} ${rowDev.id===colDev.id?'same-device':''}"
@@ -550,11 +599,11 @@ function renderMatrix() {
     if (rowOpen) {
       devIns[rowDev.id].forEach(inp => {
         html += `<tr>`;
-        html += `<td class="m-row-port">${esc(portLabel(inp))}</td>`;
+        // V3: use portFullLabel for row port headers so it shows "OB1 · Input 3" etc.
+        html += `<td class="m-row-port" title="${esc(portFullLabel(inp))}">${esc(portLabel(inp))}</td>`;
         colDevs.forEach(colDev => {
           const isColOpen = !!(matrixState[colDev.id] && matrixState[colDev.id].colOpen);
           if (!isColOpen) {
-            // Col collapsed: single cell, check if any connection from this dev to this inp
             const anyConn = devOuts[colDev.id].some(outp => connMap[outp.id] && connMap[outp.id].has(inp.id));
             html += `<td class="m-cell ${anyConn?'connected':''} ${rowDev.id===colDev.id?'same-device':''}"
               title="Expand column to route"
@@ -566,10 +615,13 @@ function renderMatrix() {
               const isConn = connMap[outp.id] && connMap[outp.id].has(inp.id);
               const conn   = isConn ? connObjMap[outp.id+'|'+inp.id] : null;
               const isSame = rowDev.id === colDev.id;
+              // V3: use portFullLabel for tooltip so it shows readable names
+              const srcLbl = portFullLabel(outp);
+              const dstLbl = portFullLabel(inp);
               html += `<td class="m-cell ${isConn?'connected':''} ${isSame?'same-device':''}"
                 data-src="${outp.id}" data-dst="${inp.id}"
-                data-src-lbl="${esc(portLabel(outp))} (${esc(colDev.name)})"
-                data-dst-lbl="${esc(portLabel(inp))} (${esc(rowDev.name)})"
+                data-src-lbl="${esc(srcLbl)}"
+                data-dst-lbl="${esc(dstLbl)}"
                 data-conn-id="${conn?conn.id:''}"
                 data-conn-notes="${conn?esc(conn.notes):''}"
                 ${!isSame ? `onclick="cellClick(this)" oncontextmenu="cellRightClick(event,this)"` : ''}
@@ -600,7 +652,6 @@ function toggleColDevice(devId) {
 }
 
 function toggleDeviceBlock(rowDevId, colDevId) {
-  // Expand both to show the connection
   if (!matrixState[rowDevId]) matrixState[rowDevId] = {};
   if (!matrixState[colDevId]) matrixState[colDevId] = {};
   matrixState[rowDevId].rowOpen = true;
@@ -624,26 +675,31 @@ async function cellClick(td) {
   const isConn = td.classList.contains('connected');
 
   if (isConn) {
-    // Remove connection
     const connId = td.dataset.connId;
     await deleteConnectionById(connId);
   } else {
-    // Check for duplicate output
     const existingConn = S.connections.find(c => c.srcId === srcId);
     if (existingConn) {
-      if (!confirm(`Output "${td.dataset['src-lbl']||srcId}" is already connected to "${existingConn.dstLabel}".\n\nAdd another connection anyway?`)) return;
+      // V3: show readable label in duplicate warning
+      const srcPort = S.ports.find(p => p.id === srcId);
+      const srcName = srcPort ? portFullLabel(srcPort) : srcId;
+      const dstPort = S.ports.find(p => p.id === existingConn.dstId);
+      const dstName = dstPort ? portFullLabel(dstPort) : existingConn.dstLabel;
+      if (!confirm(`Output "${srcName}" is already connected to "${dstName}".\n\nAdd another connection anyway?`)) return;
     }
-    await addConnectionDirect(srcId, dstId, td.dataset.srcLbl, td.dataset.dstLbl);
+    await addConnectionDirect(srcId, dstId);
   }
+  // V3: preserve matrixState — only reload connections, then re-render
   await loadConnections();
   renderMatrix();
 }
 
-async function addConnectionDirect(srcId, dstId, srcLabel, dstLabel) {
+async function addConnectionDirect(srcId, dstId) {
   const src = S.ports.find(p => p.id === srcId);
   const dst = S.ports.find(p => p.id === dstId);
-  const sl  = src ? `${src.deviceName} / OUT ${src.num}${src.alias?' — '+src.alias:''}` : srcId;
-  const dl  = dst ? `${dst.deviceName} / IN ${dst.num}${dst.alias?' — '+dst.alias:''}` : dstId;
+  // V3: use portFullLabel for human-readable stored labels
+  const sl  = src ? portFullLabel(src) : srcId;
+  const dl  = dst ? portFullLabel(dst) : dstId;
   const id  = 'C' + Date.now();
   await Excel.run(async ctx => {
     const sh = ctx.workbook.worksheets.getItem(SHEET.CONNECTIONS);
@@ -677,9 +733,12 @@ function cellRightClick(e, td) {
   const dstId  = td.dataset.dst;
   const isConn = td.classList.contains('connected');
   const connId = td.dataset.connId;
-  const srcLbl = td.dataset.srcLbl || td.getAttribute('data-src-lbl') || srcId;
-  const dstLbl = td.dataset.dstLbl || td.getAttribute('data-dst-lbl') || dstId;
-  const notes  = td.dataset.connNotes || td.getAttribute('data-conn-notes') || '';
+  // V3: always resolve to readable labels
+  const srcPort = S.ports.find(p => p.id === srcId);
+  const dstPort = S.ports.find(p => p.id === dstId);
+  const srcLbl  = srcPort ? portFullLabel(srcPort) : (td.getAttribute('data-src-lbl') || srcId);
+  const dstLbl  = dstPort ? portFullLabel(dstPort) : (td.getAttribute('data-dst-lbl') || dstId);
+  const notes   = td.dataset.connNotes || td.getAttribute('data-conn-notes') || '';
 
   const menu = document.getElementById('ctx-menu');
   let items = `<div class="ctx-label">${esc(srcLbl)}</div>
@@ -752,7 +811,7 @@ async function saveConnectionNote(connId) {
 function closeModal() { document.getElementById('modal-backdrop').classList.add('hidden'); }
 
 // ============================================================
-// CONSOLE
+// CONSOLE — V3: flat spreadsheet table replaces accordion cards
 // ============================================================
 async function addConsoleStrip() {
   const type  = v('con-type');
@@ -775,6 +834,16 @@ async function addConsoleStrip() {
   } catch(e) { setStatus('Error: '+e.message, true); }
 }
 
+// V3: Build a port options list for a <select>, resolving IDs to readable labels
+function buildPortOptions(ports, currentVal) {
+  return `<option value="">—</option>` +
+    ports.map(p => {
+      const label = portFullLabel(p);
+      const selected = (currentVal === p.id) ? 'selected' : '';
+      return `<option value="${p.id}" ${selected}>${esc(label)}</option>`;
+    }).join('');
+}
+
 function renderConsole() {
   const el = document.getElementById('console-content');
   if (!S.consoleStrips.length) { el.innerHTML = `<div class="empty">No console strips yet — add one above.</div>`; return; }
@@ -786,74 +855,116 @@ function renderConsole() {
   const secLabels = { channel:'Channels', aux:'Auxes', group:'Groups', matrix:'Matrices', directout:'Direct Outs' };
 
   let html = '';
+
   sections.forEach(sec => {
     const strips = S.consoleStrips.filter(s => s.type === sec);
     if (!strips.length) return;
-    html += `<div style="margin-bottom:16px;">
-      <div class="console-section-hdr">
-        <span>${secLabels[sec]} (${strips.length})</span>
-        <span style="font-size:9px;color:var(--text2);font-weight:400">click to expand</span>
-      </div>`;
+
+    const isChannel = sec === 'channel';
+
+    // V3: flat table layout — one row per strip, no accordions
+    html += `
+    <div style="margin-bottom:20px;">
+      <div class="console-section-hdr">${secLabels[sec]} <span style="color:var(--text3);font-weight:400;font-size:10px;">(${strips.length})</span></div>
+      <div style="overflow-x:auto;">
+        <table class="con-table">
+          <thead>
+            <tr>
+              <th style="width:28px;">#</th>
+              <th style="width:32px;">W</th>
+              <th>Name</th>
+              <th>Main In</th>`;
+
+    if (isChannel) {
+      html += `
+              <th>Alt In</th>
+              <th>InsA Snd</th>
+              <th>InsA Ret</th>
+              <th>InsB Snd</th>
+              <th>InsB Ret</th>
+              <th>Direct Out</th>`;
+    } else {
+      html += `<th>Output</th>`;
+    }
+
+    html += `
+              <th style="width:26px;"></th>
+            </tr>
+          </thead>
+          <tbody>`;
 
     strips.forEach((s, i) => {
-      const isChannel = sec === 'channel';
-      const numLabel  = i + 1;
-      const badge     = s.width === 'stereo'
-        ? `<span class="badge badge-stereo" style="font-size:9px;">ST</span>`
-        : `<span class="badge badge-mono" style="font-size:9px;">M</span>`;
+      const num = i + 1; // V3: show row number, not internal ID
+      const widthBadge = s.width === 'stereo'
+        ? `<span class="badge badge-stereo" style="font-size:8px;">ST</span>`
+        : `<span class="badge badge-mono"   style="font-size:8px;">M</span>`;
 
-      const hasData = s.mainIn || s.altIn || s.insASnd || s.output;
-
-      html += `<div class="ch-card">
-        <div class="ch-card-hdr" onclick="toggleChCard('${s.id}')">
-          <span style="font-size:10px;color:var(--text3);font-family:var(--mono);width:22px;">${numLabel}</span>
-          ${badge}
-          <span class="card-title" style="font-size:12px;">${s.name || `<span style="color:var(--text3);font-style:italic;font-weight:400">${sec} ${numLabel}</span>`}</span>
-          ${hasData ? `<span style="width:6px;height:6px;border-radius:50%;background:var(--green);flex-shrink:0;"></span>` : ''}
-          <button class="btn btn-danger btn-xs" onclick="event.stopPropagation();deleteConsoleStrip('${s.id}')">✕</button>
-        </div>
-        <div class="ch-card-body" id="chbody-${s.id}">
-          <div class="field" style="margin-bottom:8px;">
-            <label>Name</label>
-            <input type="text" value="${esc(s.name)}" placeholder="Strip name"
-              onblur="saveConsoleStripName('${s.id}', this.value)"
-              onkeydown="if(event.key==='Enter')this.blur()" />
-          </div>
-          <div class="ch-port-grid">`;
+      html += `<tr class="con-row">
+        <td class="con-num">${num}</td>
+        <td class="con-w">${widthBadge}</td>
+        <td class="con-name-cell">
+          <input class="con-name-input" value="${esc(s.name)}" placeholder="name…"
+            onblur="saveConsoleStripName('${s.id}', this.value)"
+            onkeydown="if(event.key==='Enter')this.blur()" />
+        </td>
+        <td class="con-port-cell">
+          <select class="${s.mainIn?'filled':''}" onchange="saveConsolePort('${s.id}','mainIn',this)">
+            ${buildPortOptions(inPorts, s.mainIn)}
+          </select>
+        </td>`;
 
       if (isChannel) {
-        html += consolePortField('Main In',     s.mainIn,    inPorts,  s.id, 'mainIn');
-        html += consolePortField('Alt In',      s.altIn,     inPorts,  s.id, 'altIn');
-        html += consolePortField('InsA Send',   s.insASnd,   outPorts, s.id, 'insASnd');
-        html += consolePortField('InsA Return', s.insARet,   inPorts,  s.id, 'insARet');
-        html += consolePortField('InsB Send',   s.insBSnd,   outPorts, s.id, 'insBSnd');
-        html += consolePortField('InsB Return', s.insBRet,   inPorts,  s.id, 'insBRet');
-        html += consolePortField('Direct Out',  s.directOut, outPorts, s.id, 'directOut');
+        html += `
+        <td class="con-port-cell">
+          <select class="${s.altIn?'filled':''}" onchange="saveConsolePort('${s.id}','altIn',this)">
+            ${buildPortOptions(inPorts, s.altIn)}
+          </select>
+        </td>
+        <td class="con-port-cell">
+          <select class="${s.insASnd?'filled':''}" onchange="saveConsolePort('${s.id}','insASnd',this)">
+            ${buildPortOptions(outPorts, s.insASnd)}
+          </select>
+        </td>
+        <td class="con-port-cell">
+          <select class="${s.insARet?'filled':''}" onchange="saveConsolePort('${s.id}','insARet',this)">
+            ${buildPortOptions(inPorts, s.insARet)}
+          </select>
+        </td>
+        <td class="con-port-cell">
+          <select class="${s.insBSnd?'filled':''}" onchange="saveConsolePort('${s.id}','insBSnd',this)">
+            ${buildPortOptions(outPorts, s.insBSnd)}
+          </select>
+        </td>
+        <td class="con-port-cell">
+          <select class="${s.insBRet?'filled':''}" onchange="saveConsolePort('${s.id}','insBRet',this)">
+            ${buildPortOptions(inPorts, s.insBRet)}
+          </select>
+        </td>
+        <td class="con-port-cell">
+          <select class="${s.directOut?'filled':''}" onchange="saveConsolePort('${s.id}','directOut',this)">
+            ${buildPortOptions(outPorts, s.directOut)}
+          </select>
+        </td>`;
       } else {
-        html += consolePortField('Output',      s.output,    outPorts, s.id, 'output');
+        html += `
+        <td class="con-port-cell">
+          <select class="${s.output?'filled':''}" onchange="saveConsolePort('${s.id}','output',this)">
+            ${buildPortOptions(outPorts, s.output)}
+          </select>
+        </td>`;
       }
 
-      html += `</div></div></div>`;
+      html += `
+        <td class="con-del-cell">
+          <button class="btn btn-danger btn-xs" onclick="deleteConsoleStrip('${s.id}')">✕</button>
+        </td>
+      </tr>`;
     });
-    html += `</div>`;
+
+    html += `</tbody></table></div></div>`;
   });
 
   el.innerHTML = html;
-}
-
-function consolePortField(label, currentVal, ports, stripId, fieldKey) {
-  const filled = currentVal && currentVal !== '';
-  return `<div class="ch-port-field">
-    <label>${label}</label>
-    <select class="${filled?'filled':''}" onchange="saveConsolePort('${stripId}','${fieldKey}',this)">
-      <option value="">—</option>
-      ${ports.map(p => `<option value="${p.id}" ${(currentVal === p.id || currentVal === portLabel(p)) ? 'selected' : ''}>${esc(p.deviceName)} / ${esc(portLabel(p))}</option>`).join('')}
-    </select>
-  </div>`;
-}
-
-function toggleChCard(id) {
-  document.getElementById('chbody-'+id).classList.toggle('open');
 }
 
 async function saveConsoleStripName(stripId, name) {
@@ -874,8 +985,6 @@ async function saveConsoleStripName(stripId, name) {
 
 async function saveConsolePort(stripId, fieldKey, selectEl) {
   const portId = selectEl.value;
-  const port   = S.ports.find(p => p.id === portId);
-  const label  = port ? portLabel(port) : '';
   const colMap = { mainIn:5, altIn:6, insASnd:7, insARet:8, insBSnd:9, insBRet:10, directOut:11, output:12 };
   const colNum = colMap[fieldKey];
   if (!colNum) return;
@@ -922,15 +1031,24 @@ async function runChecks() {
   S.connections.forEach(c => { if (!srcCounts[c.srcId]) srcCounts[c.srcId]=[]; srcCounts[c.srcId].push(c); });
   let dupFound = false;
   Object.values(srcCounts).forEach(conns => {
-    if (conns.length > 1) { dupFound = true; issues.push({ type:'conflict', msg:`Output used ${conns.length}×: <strong>${esc(conns[0].srcLabel)}</strong>`, detail: conns.map(c=>'→ '+esc(c.dstLabel)).join(', ') }); }
+    if (conns.length > 1) {
+      // V3: show readable label
+      const srcPort = S.ports.find(p => p.id === conns[0].srcId);
+      const label = srcPort ? portFullLabel(srcPort) : conns[0].srcLabel;
+      dupFound = true;
+      issues.push({ type:'conflict', msg:`Output used ${conns.length}×: <strong>${esc(label)}</strong>`, detail: conns.map(c=>{
+        const dp = S.ports.find(p => p.id === c.dstId);
+        return '→ ' + esc(dp ? portFullLabel(dp) : c.dstLabel);
+      }).join(', ') });
+    }
   });
   if (!dupFound) ok.push('No duplicate outputs');
 
   let dirOk = true;
   S.connections.forEach(c => {
     const src = S.ports.find(p=>p.id===c.srcId), dst = S.ports.find(p=>p.id===c.dstId);
-    if (src && src.dir!=='OUT') { dirOk=false; issues.push({type:'conflict',msg:`Direction mismatch: source is not an output: <strong>${esc(c.srcLabel)}</strong>`}); }
-    if (dst && dst.dir!=='IN')  { dirOk=false; issues.push({type:'conflict',msg:`Direction mismatch: destination is not an input: <strong>${esc(c.dstLabel)}</strong>`}); }
+    if (src && src.dir!=='OUT') { dirOk=false; issues.push({type:'conflict',msg:`Direction mismatch: source is not an output: <strong>${esc(portFullLabel(src))}</strong>`}); }
+    if (dst && dst.dir!=='IN')  { dirOk=false; issues.push({type:'conflict',msg:`Direction mismatch: destination is not an input: <strong>${esc(portFullLabel(dst))}</strong>`}); }
   });
   if (dirOk) ok.push('No direction mismatches');
 
@@ -940,7 +1058,7 @@ async function runChecks() {
 
   const connectedOuts = new Set(S.connections.map(c=>c.srcId));
   const unconn = S.ports.filter(p=>p.dir==='OUT'&&!connectedOuts.has(p.id));
-  if (unconn.length) issues.push({type:'info',msg:`${unconn.length} unconnected output(s)`,detail:unconn.map(p=>esc(portLabel(p))+' ('+esc(p.deviceName)+')').join(', ')});
+  if (unconn.length) issues.push({type:'info',msg:`${unconn.length} unconnected output(s)`,detail:unconn.map(p=>esc(portFullLabel(p))).join(', ')});
   else if (S.ports.filter(p=>p.dir==='OUT').length) ok.push('All outputs are connected');
 
   const el = document.getElementById('checks-content');
@@ -969,7 +1087,6 @@ async function runChecks() {
 // UI HELPERS
 // ============================================================
 function switchPanel(name) {
-  // Special handling for matrix (flex panel, not in .panels)
   document.querySelectorAll('.panel').forEach(p => { p.classList.remove('active'); p.classList.add('hidden'); });
   document.querySelectorAll('.matrix-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
