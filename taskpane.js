@@ -167,7 +167,7 @@ function renderAll() {
 // ============================================================
 async function addDevice() {
   const name    = v('dev-name').trim();
-  const alias   = v('dev-alias').trim();
+  const alias   = v('dev-alias').trim() || name;  // default alias = name
   const inputs  = parseInt(v('dev-inputs'))  || 0;
   const outputs = parseInt(v('dev-outputs')) || 0;
   const notes   = v('dev-notes').trim();
@@ -219,8 +219,8 @@ function renderDeviceList() {
       </div>
       <div class="device-card-body" id="dbody-${d.id}">
         <div class="field" style="margin-bottom:8px;">
-          <label>Short Alias <span style="color:var(--text3);font-weight:400">(e.g. OB1, Q, TM)</span></label>
-          <input type="text" id="alias-${d.id}" value="${esc(d.alias)}" placeholder="optional short name"
+          <label>Alias</label>
+          <input type="text" id="alias-${d.id}" value="${esc(d.alias)}" placeholder="e.g. OB1"
             onblur="saveDeviceAlias('${d.id}', this.value)"
             onkeydown="if(event.key==='Enter')this.blur()" />
         </div>
@@ -448,9 +448,7 @@ function renderMatrix() {
   }
 
   function devLabel(d) {
-    return d.alias
-      ? `${esc(d.alias)} <span style="color:var(--text3);font-weight:400;font-size:9px">${esc(d.name)}</span>`
-      : esc(d.name);
+    return esc(d.alias || d.name);
   }
 
   let html = `<table class="matrix-table" id="matrix-tbl" cellspacing="0">`;
@@ -489,8 +487,7 @@ function renderMatrix() {
     const rowOpen  = !!(matrixState[rowDev.id] && matrixState[rowDev.id].rowOpen);
     const rowCount = devIns[rowDev.id].length;
 
-    // V4: device row — when expanded, device name stays as first row with rowspan
-    // The sticky left cell shows device name always (rowspan covers all port rows)
+    // Summary row: shows aggregate connections per col-device, or per col-port if col open
     html += `<tr class="m-dev-row">`;
     html += `<td class="m-row-dev" rowspan="${rowOpen ? rowCount+1 : 1}" onclick="toggleRowDevice('${rowDev.id}')" title="${esc(rowDev.name)}">
       <span class="m-row-dev-label">${devLabel(rowDev)}</span>
@@ -500,33 +497,43 @@ function renderMatrix() {
 
     colDevs.forEach(colDev => {
       const isColOpen = !!(matrixState[colDev.id] && matrixState[colDev.id].colOpen);
+      const isSame = rowDev.id === colDev.id;
+
       if (!rowOpen && !isColOpen) {
+        // Both collapsed: aggregate dot/count, click expands both
         const ins=devIns[rowDev.id], outs=devOuts[colDev.id];
         let connCount=0;
         ins.forEach(inp => outs.forEach(outp => { if (connMap[outp.id]&&connMap[outp.id].has(inp.id)) connCount++; }));
-        html += `<td class="m-cell ${connCount>0?'connected':''} ${rowDev.id===colDev.id?'same-device':''}"
-          title="${connCount} connection(s) between ${esc(rowDev.name)} and ${esc(colDev.name)}"
-          onclick="${rowDev.id!==colDev.id?`toggleDeviceBlock('${rowDev.id}','${colDev.id}')`:''}" >
-          ${connCount>0?`<span style="font-size:9px;font-weight:600;color:var(--green)">${connCount}</span>`:''}
+        html += `<td class="m-cell ${connCount>0?'connected':''} ${isSame?'same-device':''}"
+          title="${isSame?'Same device':connCount?connCount+' connection(s) — click to expand':'Click to expand'}"
+          onclick="${!isSame?`toggleDeviceBlock('${rowDev.id}','${colDev.id}')`:''}" >
+          ${connCount>1?`<span style="font-size:9px;font-weight:600;color:var(--green)">${connCount}</span>`:''}
         </td>`;
       } else if (!rowOpen && isColOpen) {
+        // Row collapsed, col open: one cell per output port — click expands row only
         devOuts[colDev.id].forEach(outp => {
           const anyConn = devIns[rowDev.id].some(inp => connMap[outp.id]&&connMap[outp.id].has(inp.id));
-          html += `<td class="m-cell ${anyConn?'connected':''} ${rowDev.id===colDev.id?'same-device':''}"
-            title="Expand row to route" onclick="toggleRowDevice('${rowDev.id}')">
+          html += `<td class="m-cell ${anyConn?'connected':''} ${isSame?'same-device':''}"
+            title="Expand row to patch" onclick="${!isSame?`toggleRowDevice('${rowDev.id}')`:''}" >
             ${anyConn?`<span style="font-size:9px;color:var(--green)">·</span>`:''}
           </td>`;
         });
       } else if (rowOpen && !isColOpen) {
+        // Row open, col collapsed: one aggregate cell — click expands col only
         const ins=devIns[rowDev.id], outs=devOuts[colDev.id];
         let connCount=0;
         ins.forEach(inp => outs.forEach(outp => { if (connMap[outp.id]&&connMap[outp.id].has(inp.id)) connCount++; }));
-        html += `<td class="m-cell ${connCount>0?'connected':''} ${rowDev.id===colDev.id?'same-device':''}"
-          title="${connCount} connection(s) — expand column to route" onclick="toggleColDevice('${colDev.id}')">
+        html += `<td class="m-cell ${connCount>0?'connected':''} ${isSame?'same-device':''}"
+          title="${connCount?connCount+' connection(s) — expand to patch':'Expand to patch'}"
+          onclick="${!isSame?`toggleColDevice('${colDev.id}')`:''}" >
           ${connCount>0?`<span style="font-size:9px;font-weight:600;color:var(--green)">${connCount}</span>`:''}
         </td>`;
+      } else {
+        // Both open: summary row shows nothing interactive — port rows below handle patching
+        devOuts[colDev.id].forEach(() => {
+          html += `<td class="m-cell" style="background:var(--bg3);cursor:default;" title="See rows below"></td>`;
+        });
       }
-      // rowOpen && isColOpen handled in port rows below
     });
     html += `</tr>`;
 
@@ -537,17 +544,19 @@ function renderMatrix() {
         html += `<td class="m-row-port" title="${esc(portFullLabel(inp))}">${esc(portLabel(inp))}</td>`;
         colDevs.forEach(colDev => {
           const isColOpen = !!(matrixState[colDev.id] && matrixState[colDev.id].colOpen);
+          const isSame = rowDev.id === colDev.id;
           if (!isColOpen) {
+            // Col collapsed: single summary cell
             const anyConn = devOuts[colDev.id].some(outp => connMap[outp.id]&&connMap[outp.id].has(inp.id));
-            html += `<td class="m-cell ${anyConn?'connected':''} ${rowDev.id===colDev.id?'same-device':''}"
-              title="Expand column to route" onclick="toggleColDevice('${colDev.id}')">
+            html += `<td class="m-cell ${anyConn?'connected':''} ${isSame?'same-device':''}"
+              title="Expand column to patch" onclick="${!isSame?`toggleColDevice('${colDev.id}')`:''}" >
               ${anyConn?`<span style="font-size:9px;color:var(--green)">·</span>`:''}
             </td>`;
           } else {
+            // Col open: one cell per output port — these are the real patch cells
             devOuts[colDev.id].forEach(outp => {
-              const isConn = connMap[outp.id] && connMap[outp.id].has(inp.id);
+              const isConn = !!(connMap[outp.id] && connMap[outp.id].has(inp.id));
               const conn   = isConn ? connObjMap[outp.id+'|'+inp.id] : null;
-              const isSame = rowDev.id===colDev.id;
               const srcLbl = portFullLabel(outp);
               const dstLbl = portFullLabel(inp);
               html += `<td class="m-cell ${isConn?'connected':''} ${isSame?'same-device':''}"
@@ -555,7 +564,7 @@ function renderMatrix() {
                 data-src-lbl="${esc(srcLbl)}" data-dst-lbl="${esc(dstLbl)}"
                 data-conn-id="${conn?conn.id:''}" data-conn-notes="${conn?esc(conn.notes):''}"
                 ${!isSame?`onclick="cellClick(this)" oncontextmenu="cellRightClick(event,this)"`:''}
-                title="${isSame?'Same device':'Click to toggle connection'}">
+                title="${isSame?'Same device':isConn?'Connected — right-click for options':'Click to connect'}">
               </td>`;
             });
           }
@@ -982,159 +991,3 @@ function renderConsole() {
             onblur="saveConsoleStripName('${s.id}', this.value)"
             onkeydown="if(event.key==='Enter')this.blur()" />
         </td>
-        <td class="con-port-cell">${portBtn('mainIn', s.mainIn)}</td>`;
-
-      if (isChannel) {
-        html += `
-        <td class="con-port-cell">${portBtn('altIn',    s.altIn)}</td>
-        <td class="con-port-cell">${portBtn('insASnd',  s.insASnd)}</td>
-        <td class="con-port-cell">${portBtn('insARet',  s.insARet)}</td>
-        <td class="con-port-cell">${portBtn('insBSnd',  s.insBSnd)}</td>
-        <td class="con-port-cell">${portBtn('insBRet',  s.insBRet)}</td>
-        <td class="con-port-cell">${portBtn('directOut',s.directOut)}</td>`;
-      } else {
-        html += `<td class="con-port-cell">${portBtn('output', s.output)}</td>`;
-      }
-
-      html += `<td class="con-del-cell">
-          <button class="btn btn-danger btn-xs" onclick="deleteConsoleStrip('${s.id}')">✕</button>
-        </td></tr>`;
-    });
-    html += `</tbody></table></div></div>`;
-  });
-
-  el.innerHTML = html;
-}
-
-async function saveConsoleStripName(stripId, name) {
-  try {
-    await Excel.run(async ctx => {
-      const sh = ctx.workbook.worksheets.getItem(SHEET.CONSOLE);
-      const r = sh.getUsedRange(); r.load('values'); await ctx.sync();
-      for (let i=1; i<r.values.length; i++) {
-        if (r.values[i][COL.CON.ID]===stripId) { sh.getRange(`D${i+1}`).values=[[name]]; break; }
-      }
-      await ctx.sync();
-    });
-    const strip = S.consoleStrips.find(s => s.id===stripId);
-    if (strip) strip.name = name;
-    setStatus('Strip name saved');
-  } catch(e) { setStatus('Error: '+e.message, true); }
-}
-
-async function deleteConsoleStrip(stripId) {
-  if (!confirm('Delete this console strip?')) return;
-  try {
-    await Excel.run(async ctx => {
-      const sh = ctx.workbook.worksheets.getItem(SHEET.CONSOLE);
-      const r = sh.getUsedRange(); r.load('values'); await ctx.sync();
-      for (let i=r.values.length-1; i>=1; i--) {
-        if (r.values[i][COL.CON.ID]===stripId) { sh.getRange(`${i+1}:${i+1}`).delete(Excel.DeleteShiftDirection.up); break; }
-      }
-      await ctx.sync();
-    });
-    await loadConsole(); renderConsole();
-    setStatus('Strip deleted');
-  } catch(e) { setStatus('Error: '+e.message, true); }
-}
-
-// ============================================================
-// CHECKS
-// ============================================================
-async function runChecks() {
-  await loadAll();
-  const issues = [], ok = [];
-
-  // Duplicate outputs
-  const srcCounts = {};
-  S.connections.forEach(c => { if (!srcCounts[c.srcId]) srcCounts[c.srcId]=[]; srcCounts[c.srcId].push(c); });
-  let dupFound = false;
-  Object.values(srcCounts).forEach(conns => {
-    if (conns.length > 1) {
-      dupFound = true;
-      const srcPort = S.ports.find(p=>p.id===conns[0].srcId);
-      issues.push({ type:'conflict', msg:`Output used ${conns.length}×: <strong>${esc(srcPort?portFullLabel(srcPort):conns[0].srcLabel)}</strong>`,
-        detail: conns.map(c => { const dp=S.ports.find(p=>p.id===c.dstId); return '→ '+esc(dp?portFullLabel(dp):c.dstLabel); }).join(', ') });
-    }
-  });
-  if (!dupFound) ok.push('No duplicate outputs');
-
-  // Direction mismatches
-  let dirOk = true;
-  S.connections.forEach(c => {
-    const src=S.ports.find(p=>p.id===c.srcId), dst=S.ports.find(p=>p.id===c.dstId);
-    if (src&&src.dir!=='OUT') { dirOk=false; issues.push({type:'conflict',msg:`Direction mismatch: source not an output: <strong>${esc(portFullLabel(src))}</strong>`}); }
-    if (dst&&dst.dir!=='IN')  { dirOk=false; issues.push({type:'conflict',msg:`Direction mismatch: destination not an input: <strong>${esc(portFullLabel(dst))}</strong>`}); }
-  });
-  if (dirOk) ok.push('No direction mismatches');
-
-  // Orphaned ports
-  const devIds = new Set(S.devices.map(d=>d.id));
-  const orphans = S.ports.filter(p=>!devIds.has(p.deviceId));
-  orphans.length ? issues.push({type:'warn',msg:`${orphans.length} port(s) reference missing devices`}) : ok.push('All ports have valid devices');
-
-  // Unconnected outputs
-  const connectedOuts = new Set(S.connections.map(c=>c.srcId));
-  const unconn = S.ports.filter(p=>p.dir==='OUT'&&!connectedOuts.has(p.id));
-  if (unconn.length) issues.push({type:'info',msg:`${unconn.length} unconnected output(s)`,detail:unconn.map(p=>esc(portFullLabel(p))).join(', ')});
-  else if (S.ports.filter(p=>p.dir==='OUT').length) ok.push('All outputs are connected');
-
-  // V4: 384-input check
-  const usedInputs = calcChannelInputs();
-  if (usedInputs > MAX_CHANNEL_INPUTS) {
-    issues.push({type:'conflict', msg:`Channel input count <strong>${usedInputs}</strong> exceeds the ${MAX_CHANNEL_INPUTS}-input limit`,
-      detail:`Reduce channel count or convert stereo channels to mono to stay within limit.`});
-  } else if (usedInputs > MAX_CHANNEL_INPUTS * 0.9) {
-    issues.push({type:'warn', msg:`Channel inputs at ${usedInputs}/${MAX_CHANNEL_INPUTS} — approaching limit`});
-  } else {
-    ok.push(`Channel inputs: ${usedInputs}/${MAX_CHANNEL_INPUTS}`);
-  }
-
-  const el = document.getElementById('checks-content');
-  let html = `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;">
-    ${[['Devices',S.devices.length],['Ports',S.ports.length],['Connections',S.connections.length]].map(([l,n])=>`
-    <div class="card" style="text-align:center;padding:10px 6px;">
-      <div style="font-size:18px;font-weight:600">${n}</div>
-      <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em">${l}</div>
-    </div>`).join('')}
-  </div>`;
-  ok.forEach(m => { html+=`<div class="alert alert-success"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>${m}</div>`; });
-  if (issues.length) {
-    html += `<div class="divider"></div>`;
-    issues.forEach(i => {
-      const cls = i.type==='conflict'?'alert-error':i.type==='warn'?'alert-warn':'alert-info';
-      html+=`<div class="alert ${cls}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12" y2="16.01"/></svg><div><div>${i.msg}</div>${i.detail?`<div style="margin-top:4px;font-size:10px;opacity:.8">${i.detail}</div>`:''}</div></div>`;
-    });
-  } else if (S.devices.length) {
-    html+=`<div class="divider"></div><div class="alert alert-success"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg><strong>All checks passed!</strong></div>`;
-  }
-  el.innerHTML = html;
-  setStatus(`Checks complete — ${issues.length} issue(s)`);
-}
-
-// ============================================================
-// UI HELPERS
-// ============================================================
-function switchPanel(name) {
-  document.querySelectorAll('.panel').forEach(p => { p.classList.remove('active'); p.classList.add('hidden'); });
-  document.querySelectorAll('.matrix-panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  const nav = document.getElementById('nav-'+name);
-  if (nav) nav.classList.add('active');
-  if (name==='matrix') {
-    document.getElementById('panel-matrix').classList.add('active');
-  } else {
-    const panel = document.getElementById('panel-'+name);
-    if (panel) { panel.classList.remove('hidden'); panel.classList.add('active'); }
-  }
-  closePortPopover();
-}
-
-function setStatus(msg, isError=false) {
-  document.getElementById('status-text').textContent = msg;
-  document.getElementById('status-dot').className = 'status-dot'+(isError?' error':'');
-}
-
-function v(id) { const el=document.getElementById(id); return el?el.value:''; }
-function clearFields(ids) { ids.forEach(id=>{const el=document.getElementById(id);if(el)el.value='';}); }
-function esc(s) { if(!s&&s!==0) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
