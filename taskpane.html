@@ -45,7 +45,6 @@
     .field input:focus, .field select:focus { border-color: var(--accent); }
     .field input::placeholder { color: var(--text3); }
     .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
 
     /* BUTTONS */
     .btn { display: inline-flex; align-items: center; gap: 5px; padding: 7px 13px; border-radius: var(--radius); border: none; font-family: var(--font); font-size: 12px; font-weight: 500; cursor: pointer; transition: all .15s; }
@@ -62,7 +61,6 @@
 
     /* CARDS */
     .card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; margin-bottom: 7px; }
-    .card-row { display: flex; align-items: center; gap: 8px; }
     .card-title { font-weight: 500; color: var(--text); font-size: 12px; flex: 1; }
     .card-sub { font-size: 11px; color: var(--text2); margin-top: 3px; }
 
@@ -70,8 +68,6 @@
     .badge { display: inline-block; padding: 2px 7px; border-radius: 3px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
     .badge-in  { background: var(--green-dim); color: var(--green); }
     .badge-out { background: var(--orange-dim); color: var(--orange); }
-    .badge-mono { background: #1a1a2e; color: #93c5fd; }
-    .badge-stereo { background: #1a0a2e; color: #c4b5fd; }
 
     /* DIVIDER */
     .divider { height: 1px; background: var(--border); margin: 14px 0; }
@@ -88,7 +84,7 @@
     .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
     .status-dot.error { background: var(--red); }
 
-    /* DEVICE CARD EXPANDED */
+    /* DEVICE CARDS */
     .device-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 8px; overflow: hidden; }
     .device-card-header { padding: 10px 12px; display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
     .device-card-header:hover { background: var(--bg3); }
@@ -104,7 +100,7 @@
     .io-pill-in  { background: var(--green-dim); color: var(--green); }
     .io-pill-out { background: var(--orange-dim); color: var(--orange); }
 
-    /* PORTS TAB — V3: fixed height rows, no empty/filled height difference */
+    /* PORTS */
     .port-row { display: flex; align-items: center; gap: 6px; padding: 0 8px; height: 32px; border-bottom: 1px solid var(--border); font-size: 11px; flex-shrink: 0; }
     .port-row:last-child { border-bottom: none; }
     .port-row:hover { background: var(--bg3); }
@@ -114,7 +110,14 @@
     .port-alias:focus { background: var(--bg4); outline: 1px solid var(--accent); }
     .port-alias::placeholder { color: var(--text3); font-style: italic; }
 
-    /* MATRIX */
+    /* SEARCH */
+    .search-wrap { position: relative; margin-bottom: 10px; }
+    .search-wrap svg { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); width: 12px; height: 12px; color: var(--text3); pointer-events: none; }
+    .search-wrap input { padding-left: 28px; }
+
+    /* =====================================================
+       MATRIX — V4
+       ===================================================== */
     .matrix-panel { position: absolute; inset: 0; display: none; flex-direction: column; overflow: hidden; }
     .matrix-panel.active { display: flex; }
     .matrix-toolbar { padding: 8px 12px; background: var(--bg2); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; flex-shrink: 0; flex-wrap: wrap; }
@@ -122,21 +125,174 @@
     .matrix-scroll { flex: 1; overflow: auto; position: relative; }
     .matrix-table { border-collapse: collapse; font-size: 11px; }
     .matrix-table th, .matrix-table td { border: 1px solid var(--border); }
-    .m-corner { background: var(--bg); position: sticky; top: 0; left: 0; z-index: 30; min-width: 160px; padding: 6px 8px; }
-    .m-row-dev { background: var(--bg2); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; padding: 6px 10px; cursor: pointer; user-select: none; white-space: nowrap; position: sticky; left: 0; z-index: 10; min-width: 160px; }
-    .m-row-dev:hover { background: var(--bg3); }
-    .m-row-port { background: var(--bg2); padding: 4px 8px; white-space: nowrap; position: sticky; left: 0; z-index: 10; min-width: 160px; font-size: 10px; color: var(--text2); }
-    .m-col-dev { background: var(--bg2); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; padding: 6px 8px; cursor: pointer; user-select: none; white-space: nowrap; position: sticky; top: 0; z-index: 20; text-align: center; }
+
+    /* Corner: sticky top+left */
+    .m-corner {
+      background: var(--bg);
+      position: sticky; top: 0; left: 0;
+      z-index: 40;
+      min-width: 160px;
+      padding: 6px 8px;
+    }
+
+    /* Column DEVICE header: sticky top, stays visible on scroll down */
+    .m-col-dev {
+      background: var(--bg2);
+      font-size: 10px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: .06em;
+      padding: 6px 8px;
+      cursor: pointer; user-select: none;
+      white-space: nowrap;
+      position: sticky; top: 0;
+      z-index: 20;
+      text-align: center;
+    }
     .m-col-dev:hover { background: var(--bg3); }
-    .m-col-port { background: var(--bg2); padding: 4px 6px; white-space: nowrap; position: sticky; top: 0; z-index: 20; font-size: 10px; color: var(--text2); text-align: center; writing-mode: vertical-rl; transform: rotate(180deg); height: 80px; vertical-align: bottom; }
-    .m-cell { width: 26px; min-width: 26px; height: 26px; text-align: center; vertical-align: middle; cursor: pointer; transition: background .1s; }
+
+    /* Column PORT header: sticky top (second row), rotated CCW */
+    .m-col-port {
+      background: var(--bg2);
+      position: sticky; top: 34px; /* height of device row */
+      z-index: 20;
+      width: 28px; min-width: 28px;
+      height: 90px;
+      padding: 4px 2px;
+      vertical-align: bottom;
+      text-align: center;
+      /* V4: rotate text 90deg counter-clockwise */
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+      font-size: 10px; color: var(--text2);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-height: 90px;
+    }
+
+    /* Row DEVICE cell: sticky left, spans all port rows — always visible */
+    .m-row-dev {
+      background: var(--bg2);
+      position: sticky; left: 0;
+      z-index: 10;
+      min-width: 150px; max-width: 180px;
+      padding: 6px 10px;
+      cursor: pointer; user-select: none;
+      vertical-align: top;
+      border-right: 2px solid var(--border2);
+    }
+    .m-row-dev:hover { background: var(--bg3); }
+    /* Inner label layout */
+    .m-row-dev { display: table-cell; } /* keep as table-cell for rowspan */
+    .m-row-dev-label { display: inline; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
+
+    /* Row PORT cell: sticky left, but indented — sits under device name via rowspan */
+    .m-row-port {
+      background: var(--bg2);
+      padding: 3px 8px 3px 14px;
+      position: sticky; left: 0;
+      z-index: 9;
+      min-width: 150px; max-width: 180px;
+      font-size: 10px; color: var(--text2);
+      white-space: nowrap;
+      border-right: 2px solid var(--border2);
+    }
+
+    /* Matrix cell */
+    .m-cell {
+      width: 28px; min-width: 28px; height: 26px;
+      text-align: center; vertical-align: middle;
+      cursor: pointer; transition: background .1s;
+    }
     .m-cell:hover { background: var(--accent-dim) !important; }
     .m-cell.connected { background: var(--green-dim); }
     .m-cell.connected::after { content: '●'; color: var(--green); font-size: 12px; line-height: 26px; }
     .m-cell.same-device { background: #111; cursor: default; }
     .m-cell.same-device:hover { background: #111 !important; }
-    .m-cell.col-hidden, .m-row-hidden { display: none; }
-    .m-cell-spacer { background: var(--bg); }
+
+    /* =====================================================
+       CONSOLE — V4
+       ===================================================== */
+    .console-section-hdr { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--accent); padding: 4px 10px; background: var(--accent-dim); border-left: 2px solid var(--accent); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+
+    /* Channel input counter bar */
+    .con-input-counter { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; margin-bottom: 12px; }
+
+    /* Console table */
+    .con-table { width: 100%; border-collapse: collapse; font-size: 11px; min-width: 360px; }
+    .con-table thead tr { background: var(--bg3); }
+    .con-table th { padding: 5px 6px; font-size: 9px; text-transform: uppercase; letter-spacing: .06em; color: var(--text3); font-weight: 600; text-align: left; border-bottom: 1px solid var(--border2); white-space: nowrap; }
+    .con-table tbody tr.con-row { border-bottom: 1px solid var(--border); }
+    .con-table tbody tr.con-row:hover { background: var(--bg3); }
+    .con-table tbody tr.con-row:last-child { border-bottom: none; }
+
+    .con-num { font-family: var(--mono); color: var(--text3); font-size: 10px; padding: 0 6px; text-align: center; white-space: nowrap; }
+    .con-w { padding: 0 4px; text-align: center; }
+    .con-name-cell { padding: 3px 4px; min-width: 80px; }
+    .con-name-input { width: 100%; background: transparent; border: none; color: var(--text); font-size: 11px; font-family: var(--font); padding: 3px 5px; border-radius: 3px; }
+    .con-name-input:hover { background: var(--bg4); }
+    .con-name-input:focus { background: var(--bg4); outline: 1px solid var(--accent); }
+    .con-name-input::placeholder { color: var(--text3); font-style: italic; }
+    .con-del-cell { padding: 0 4px; text-align: center; }
+
+    /* V4: Width toggle button (mono / stereo) */
+    .width-toggle {
+      font-size: 9px; font-weight: 700; font-family: var(--font);
+      border-radius: 3px; border: 1px solid; cursor: pointer;
+      padding: 2px 5px; letter-spacing: .04em;
+      transition: all .15s;
+    }
+    .width-toggle.mono   { background: #1a1a2e; color: #93c5fd; border-color: #1d3a6e; }
+    .width-toggle.mono:hover { background: #1d3a6e; }
+    .width-toggle.stereo { background: #1a0a2e; color: #c4b5fd; border-color: #3d1f7a; }
+    .width-toggle.stereo:hover { background: #3d1f7a; }
+
+    /* V4: Port assignment button (replaces <select>) */
+    .con-port-cell { padding: 3px 4px; min-width: 100px; }
+    .con-port-btn {
+      width: 100%; min-height: 24px;
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 3px; color: var(--text2);
+      font-size: 10px; font-family: var(--font);
+      padding: 3px 6px; cursor: pointer;
+      text-align: left; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
+      transition: border-color .15s, background .15s;
+    }
+    .con-port-btn:hover { border-color: var(--accent); background: var(--bg4); }
+    .con-port-btn.filled { border-color: #1d4a2a; background: #0c1a10; color: var(--text); }
+    .con-port-btn.filled:hover { border-color: var(--accent); }
+
+    /* V4: Port popover */
+    .port-popover {
+      position: fixed; z-index: 900;
+      background: var(--bg2); border: 1px solid var(--border2);
+      border-radius: var(--radius); box-shadow: 0 12px 32px rgba(0,0,0,.7);
+      overflow: hidden;
+    }
+    .pop-inner { display: flex; flex-direction: column; max-height: 320px; }
+    .pop-inner.pop-stereo { flex-direction: row; }
+    .pop-side { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+    .pop-side-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); background: var(--accent-dim); padding: 5px 10px; flex-shrink: 0; }
+    .pop-divider { width: 1px; background: var(--border2); flex-shrink: 0; }
+    .pop-search-wrap { position: relative; padding: 6px 8px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .pop-search-wrap svg { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); width: 11px; height: 11px; color: var(--text3); pointer-events: none; }
+    .pop-search {
+      width: 100%; background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 3px; color: var(--text); font-size: 11px; font-family: var(--font);
+      padding: 4px 6px 4px 22px; outline: none;
+    }
+    .pop-search:focus { border-color: var(--accent); }
+    .pop-list { overflow-y: auto; flex: 1; }
+    .pop-item {
+      padding: 6px 10px; cursor: pointer; font-size: 11px;
+      color: var(--text2); display: flex; align-items: center; gap: 6px;
+      border-bottom: 1px solid var(--border);
+      transition: background .1s;
+    }
+    .pop-item:last-child { border-bottom: none; }
+    .pop-item:hover { background: var(--bg3); color: var(--text); }
+    .pop-item.selected { background: var(--accent-dim); color: var(--accent); }
+    .pop-item.selected:hover { background: var(--accent-dim); }
 
     /* CONTEXT MENU */
     .ctx-menu { position: fixed; background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius); padding: 4px 0; min-width: 180px; z-index: 1000; box-shadow: 0 8px 24px rgba(0,0,0,.5); font-size: 12px; }
@@ -152,41 +308,12 @@
     .modal h3 { font-size: 13px; font-weight: 600; margin-bottom: 12px; }
     .modal-actions { display: flex; gap: 8px; margin-top: 14px; justify-content: flex-end; }
 
-    /* CONSOLE SECTION HEADER (kept) */
-    .console-section-hdr { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--accent); padding: 4px 10px; background: var(--accent-dim); border-left: 2px solid var(--accent); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
-
-    /* V3: CONSOLE TABLE — flat spreadsheet layout */
-    .con-table { width: 100%; border-collapse: collapse; font-size: 11px; min-width: 400px; }
-    .con-table thead tr { background: var(--bg3); }
-    .con-table th { padding: 5px 6px; font-size: 9px; text-transform: uppercase; letter-spacing: .06em; color: var(--text3); font-weight: 600; text-align: left; border-bottom: 1px solid var(--border2); white-space: nowrap; }
-    .con-table tbody tr.con-row { border-bottom: 1px solid var(--border); }
-    .con-table tbody tr.con-row:hover { background: var(--bg3); }
-    .con-table tbody tr.con-row:last-child { border-bottom: none; }
-    .con-num { font-family: var(--mono); color: var(--text3); font-size: 10px; padding: 0 6px; text-align: center; white-space: nowrap; }
-    .con-w { padding: 0 4px; text-align: center; }
-    .con-name-cell { padding: 3px 4px; min-width: 90px; }
-    .con-name-input { width: 100%; background: transparent; border: none; color: var(--text); font-size: 11px; font-family: var(--font); padding: 3px 5px; border-radius: 3px; }
-    .con-name-input:hover { background: var(--bg4); }
-    .con-name-input:focus { background: var(--bg4); outline: 1px solid var(--accent); }
-    .con-name-input::placeholder { color: var(--text3); font-style: italic; }
-    .con-port-cell { padding: 3px 4px; min-width: 110px; }
-    .con-port-cell select { width: 100%; background: var(--bg3); border: 1px solid var(--border); border-radius: 3px; color: var(--text2); font-size: 10px; padding: 3px 4px; font-family: var(--font); cursor: pointer; }
-    .con-port-cell select:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
-    .con-port-cell select.filled { border-color: #1d4a2a; background: #0c1a10; color: var(--text); }
-    .con-del-cell { padding: 0 4px; text-align: center; }
-
-    /* SEARCH */
-    .search-wrap { position: relative; margin-bottom: 10px; }
-    .search-wrap svg { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); width: 12px; height: 12px; color: var(--text3); pointer-events: none; }
-    .search-wrap input { padding-left: 28px; }
-
     /* MISC */
     .empty { text-align: center; padding: 28px 12px; color: var(--text3); font-size: 12px; }
     .hidden { display: none !important; }
     ::-webkit-scrollbar { width: 4px; height: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-    .spinner { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .6s linear infinite; display: inline-block; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .wizard-step { text-align: center; padding: 24px 12px; }
     .wizard-step h2 { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
@@ -234,20 +361,13 @@
   <!-- DEVICES -->
   <div class="panel hidden" id="panel-devices">
     <p class="sec-header">Devices</p>
-    <!-- V3: Name + Alias on same row, then I/O row, then Notes -->
     <div class="row2">
       <div class="field"><label>Device Name</label><input type="text" id="dev-name" placeholder="e.g. Orange Box 2" /></div>
       <div class="field"><label>Short Alias <span style="color:var(--text3);font-weight:400">(OB2, Q…)</span></label><input type="text" id="dev-alias" placeholder="optional" /></div>
     </div>
     <div class="row2">
-      <div class="field">
-        <label>Inputs</label>
-        <input type="number" id="dev-inputs" placeholder="0" min="0" value="0" />
-      </div>
-      <div class="field">
-        <label>Outputs</label>
-        <input type="number" id="dev-outputs" placeholder="0" min="0" value="0" />
-      </div>
+      <div class="field"><label>Inputs</label><input type="number" id="dev-inputs" placeholder="0" min="0" value="0" /></div>
+      <div class="field"><label>Outputs</label><input type="number" id="dev-outputs" placeholder="0" min="0" value="0" /></div>
     </div>
     <div class="field"><label>Notes</label><input type="text" id="dev-notes" placeholder="optional" /></div>
     <div class="btn-row">
@@ -263,7 +383,6 @@
 
   <!-- PORTS -->
   <div class="panel hidden" id="panel-ports">
-    <!-- V3: "Port Names" header -->
     <p class="sec-header">Port Names</p>
     <div class="row2" style="margin-bottom:10px;">
       <select id="port-filter-device" onchange="renderPortList()" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:12px;padding:6px 8px;">
@@ -277,13 +396,12 @@
     </div>
     <div class="search-wrap">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-      <!-- V3: placeholder updated to "Search name…" -->
       <input type="text" id="port-search" placeholder="Search name…" oninput="renderPortList()" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:12px;padding:6px 8px 6px 28px;" />
     </div>
     <div id="port-list"></div>
   </div>
 
-  <!-- MATRIX (special — not in .panels scroll, handled separately) -->
+  <!-- MATRIX -->
   <div class="matrix-panel" id="panel-matrix">
     <div class="matrix-toolbar">
       <button class="btn btn-ghost btn-sm" onclick="expandAll()">Expand All</button>
@@ -298,6 +416,12 @@
   <!-- CONSOLE -->
   <div class="panel hidden" id="panel-console">
     <p class="sec-header">Console</p>
+
+    <!-- V4: live channel input counter -->
+    <div class="con-input-counter" id="con-input-counter">
+      <div style="font-size:10px;color:var(--text2);">Channel inputs: — / 384</div>
+    </div>
+
     <div class="alert alert-info" style="margin-bottom:12px;">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12" y2="16.01"/></svg>
       Console is a device. Add it in Devices tab first, then assign its ports here.
@@ -345,10 +469,8 @@
   <span id="status-text">Initializing…</span>
 </div>
 
-<!-- Context Menu -->
 <div class="ctx-menu hidden" id="ctx-menu"></div>
 
-<!-- Modal -->
 <div class="modal-backdrop hidden" id="modal-backdrop">
   <div class="modal" id="modal-body"></div>
 </div>
